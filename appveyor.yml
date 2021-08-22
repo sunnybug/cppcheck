@@ -18,6 +18,11 @@ environment:
       configuration: Release
       vcvarsall_platform: x64
       PlatformToolset: v120
+    - VisualStudioVersion: 12.0
+      platform: x32
+      configuration: Debug
+      vcvarsall_platform: x32
+      PlatformToolset: v120
 # FIXME: These are disabled for now. They were broken by ae8653612802b41b70424ec9a5eefe8a1178f6d1
 #    - VisualStudioVersion: 14.0
 #      platform: x64
