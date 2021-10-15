@@ -4,13 +4,7 @@
 
 name: release-windows
 
-on:
-  push:
-    tags:
-      - '2.*'
-  schedule:
-    - cron:  '0 0 * * *'
-  workflow_dispatch:
+on: [push, pull_request]
 
 defaults:
   run:
@@ -93,6 +87,18 @@ jobs:
           set PRODUCTVER=%PRODUCTVER:"=%
           echo ProductVersion=%PRODUCTVER%
           msbuild -m cppcheck.wixproj /p:Platform=x64,ProductVersion=%PRODUCTVER%.${{ github.run_number }}
+
+      - name: Deploy files
+        run: |
+          dir /s
+          mkdir Build\gui\addons
+          copy addons\*.py Build\gui\addons
+          mkdir Build\gui\cfg
+          copy cfg\*.cfg Build\gui\cfg
+          mkdir Build\gui\platforms
+          copy platforms\*.xml Build\gui\platforms
+          copy bin\cppcheck.exe Build\gui\
+          copy bin\cppcheck-core.dll Build\gui\
 
       - uses: actions/upload-artifact@v2
         with:
