@@ -75,11 +75,25 @@ jobs:
       - name: Build CLI x64 release configuration using MSBuild
         run: msbuild -m cppcheck.sln /t:cli /p:Configuration=Release-PCRE /p:Platform=x64
 
+      - name: Collect files
+        run: |
+          move Build\gui win_installer\files
+          mkdir win_installer\files\addons
+          copy addons\*.py win_installer\files\addons
+          mkdir win_installer\files\cfg
+          copy cfg\*.cfg win_installer\files\cfg
+          mkdir win_installer\files\platforms
+          copy platforms\*.xml win_installer\files\platforms
+          copy bin\cppcheck.exe win_installer\files
+          copy bin\cppcheck-core.dll win_installer\files
+          copy externals\z3\bin\libz3.dll win_installer\files
+          mkdir win_installer\files\help
+          xcopy /s gui\help win_installer\files\help
+
+
       - name: Build Installer
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          mkdir bin
-          xcopy /S Build\gui bin
           cd win_installer
           REM Read ProductVersion
           for /f "tokens=4 delims= " %%a in ('find "ProductVersion" productInfo.wxi') do set PRODUCTVER=%%a
@@ -87,18 +101,6 @@ jobs:
           set PRODUCTVER=%PRODUCTVER:"=%
           echo ProductVersion=%PRODUCTVER%
           msbuild -m cppcheck.wixproj /p:Platform=x64,ProductVersion=%PRODUCTVER%.${{ github.run_number }}
-
-      - name: Deploy files
-        run: |
-          dir /s
-          mkdir Build\gui\addons
-          copy addons\*.py Build\gui\addons
-          mkdir Build\gui\cfg
-          copy cfg\*.cfg Build\gui\cfg
-          mkdir Build\gui\platforms
-          copy platforms\*.xml Build\gui\platforms
-          copy bin\cppcheck.exe Build\gui\
-          copy bin\cppcheck-core.dll Build\gui\
 
       - uses: actions/upload-artifact@v2
         with:
@@ -108,4 +110,4 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: deploy
-          path: Build\gui
+          path: win_installer\files
