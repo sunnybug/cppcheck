@@ -79,7 +79,7 @@ jobs:
         run: |
           move Build\gui win_installer\files
           mkdir win_installer\files\addons
-          copy addons\*.py win_installer\files\addons
+          copy addons\*.* win_installer\files\addons
           mkdir win_installer\files\cfg
           copy cfg\*.cfg win_installer\files\cfg
           mkdir win_installer\files\platforms
