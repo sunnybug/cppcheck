@@ -89,6 +89,8 @@ jobs:
           copy externals\z3\bin\libz3.dll win_installer\files
           mkdir win_installer\files\help
           xcopy /s gui\help win_installer\files\help
+          del win_installer\files\translations\*.qm
+          move gui\*.qm win_installer\files\translations
 
 
       - name: Build Installer
