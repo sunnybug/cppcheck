@@ -103,6 +103,9 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 if (MSVC)
+    include(ProcessorCount)
+    ProcessorCount(N)
+    add_definitions(/MP${N})
     add_compile_options(/W4)
     add_compile_options(/wd4018) # warning C4018: '>': signed/unsigned mismatch
     add_compile_options(/wd4127) # warning C4127: conditional expression is constant
