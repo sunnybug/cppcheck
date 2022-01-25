@@ -249,13 +249,13 @@ void CheckThread::runAddonsAndTools(const ImportProject::FileSettings *fileSetti
                    args << fileName;
                  */
                 // Using clang-tidy
-                args.insert(0,"-checks=-*,clang-analyzer-*");
-                args.insert(1, fileName);
-                args.insert(2, "--");
+                // args.insert(0,"-checks=-*,clang-analyzer-*");
+                args.insert(0, fileName);
+                args.insert(1, "--");
             } else {
-                args.insert(0,"-checks=*,-clang-analyzer-*,-llvm*");
-                args.insert(1, fileName);
-                args.insert(2, "--");
+                // args.insert(0,"-checks=*,-clang-analyzer-*,-llvm*");
+                args.insert(0, fileName);
+                args.insert(1, "--");
             }
 
             {
