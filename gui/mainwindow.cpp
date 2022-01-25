@@ -1715,7 +1715,7 @@ void MainWindow::editProjectFile()
     if (dlg.exec() == QDialog::Accepted) {
         mProjectFile->write();
         mUI.mResults->showContracts(mProjectFile->bugHunting);
-        analyzeProject(mProjectFile);
+        // analyzeProject(mProjectFile);
     }
 }
 
