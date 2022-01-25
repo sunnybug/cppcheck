@@ -678,7 +678,8 @@ void ProjectFileDialog::addSingleSuppression(const Suppressions::Suppression &su
 
     // Replace relative file path in the suppression with the absolute one
     if ((suppression.fileName.find("*") == std::string::npos) &&
-        (suppression.fileName.find(sep) == std::string::npos)) {
+        (suppression.fileName.find(sep) == std::string::npos)
+        && !suppression.fileName.empty()) {
         QFileInfo inf(mProjectFile->getFilename());
         QString rootpath = inf.absolutePath();
         if (QFile::exists(QString{"%1%2%3"}.arg(rootpath,
