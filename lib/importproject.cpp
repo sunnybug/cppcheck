@@ -547,6 +547,8 @@ namespace {
                             if (!additionalIncludePaths.empty())
                                 additionalIncludePaths += ';';
                             additionalIncludePaths += e->GetText();
+                        }else if ( std::strcmp( e->Name(), "PrecompiledHeaderFile" ) == 0 ){
+                            precompiledHeaderFile = e->GetText();
                         } else if (std::strcmp(e->Name(), "LanguageStandard") == 0) {
                             if (std::strcmp(e->GetText(), "stdcpp14") == 0)
                                 cppstd = Standards::CPP14;
@@ -598,6 +600,7 @@ namespace {
         std::string enhancedInstructionSet;
         std::string preprocessorDefinitions;
         std::string additionalIncludePaths;
+        std::string precompiledHeaderFile;
         Standards::cppstd_t cppstd = Standards::CPPLatest;
     };
 }
@@ -791,6 +794,8 @@ bool ImportProject::importVcxproj(const std::string &filename, std::map<std::str
             for (const ItemDefinitionGroup &i : itemDefinitionGroupList) {
                 if (!i.conditionIsTrue(p))
                     continue;
+                if ( fs.precompiledHeaderFile.empty() )
+                    fs.precompiledHeaderFile = i.precompiledHeaderFile;
                 if (i.cppstd == Standards::CPP11)
                     fs.standard = "c++11";
                 else if (i.cppstd == Standards::CPP14)

@@ -73,6 +73,7 @@ public:
         std::list<std::string> includePaths;
         std::list<std::string> systemIncludePaths;
         std::string standard;
+        std::string  precompiledHeaderFile;
         cppcheck::Platform::PlatformType platformType;
         bool msc;
         bool useMfc;
