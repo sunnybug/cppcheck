@@ -505,7 +505,7 @@ void clangimport::AstNode::setLocations(TokenList *tokenList, int file, int line
 
             std::string::size_type sep2 = ext.find(":", sep1+1);
             file = tokenList->appendFileIfNew(ext.substr(1, sep1 - 1));
-            line = MathLib::toLongNumber(ext.substr(sep1+1, sep2-sep1));
+            line = MathLib::toLongNumber(ext.substr(sep1+1, sep2-sep1-1));
         }
     }
     mFile = file;
