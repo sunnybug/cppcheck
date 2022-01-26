@@ -204,6 +204,9 @@ void CheckThread::runAddonsAndTools(const ImportProject::FileSettings *fileSetti
                 }
             }
 
+            if ( !fileSettings->precompiledHeaderFile.empty() )
+                args << "-include" << fileSettings->precompiledHeaderFile.c_str();
+
             QString analyzerInfoFile;
 
             const std::string &buildDir = mCppcheck.settings().buildDir;
