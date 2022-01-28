@@ -106,7 +106,6 @@ if (MSVC)
     include(ProcessorCount)
     ProcessorCount(N)
     add_definitions(/MP${N})
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /entry:mainCRTStartup")
     
     add_compile_options(/W4)
     add_compile_options(/wd4018) # warning C4018: '>': signed/unsigned mismatch
