@@ -258,7 +258,13 @@ void CheckThread::runAddonsAndTools(const ImportProject::FileSettings *fileSetti
             } else {
                 // args.insert(0,"-checks=*,-clang-analyzer-*,-llvm*");
                 args.insert(0, fileName);
-                args.insert(1, "--");
+                args.insert( 1, "--" );
+
+                if (mCppcheck.settings().autoFix) {
+                    args.insert( 0, "--fix" );
+                    args.insert( 1, "--fix-errors" );
+                    args.insert( 2, "--fix-notes" );
+                }
             }
 
             {

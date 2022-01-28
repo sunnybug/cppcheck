@@ -65,6 +65,7 @@ void ProjectFile::clear()
     mClangAnalyzer = mClangTidy = false;
     mAnalyzeAllVsConfigs = false;
     mCheckHeaders = true;
+    mAutoFix = false;
     mCheckUnusedTemplates = true;
     mMaxCtuDepth = settings.maxCtuDepth;
     mMaxTemplateRecursion = settings.maxTemplateRecursion;
@@ -115,8 +116,11 @@ bool ProjectFile::read(const QString &filename)
             if (xmlReader.name() == CppcheckXml::ImportProjectElementName)
                 readImportProject(xmlReader);
 
-            if (xmlReader.name() == CppcheckXml::AnalyzeAllVsConfigsElementName)
-                mAnalyzeAllVsConfigs = readBool(xmlReader);
+            if ( xmlReader.name() == CppcheckXml::AnalyzeAllVsConfigsElementName )
+                mAnalyzeAllVsConfigs = readBool( xmlReader );
+
+            if ( xmlReader.name() == CppcheckXml::AutoFix )
+                mAutoFix = readBool( xmlReader );
 
             if (xmlReader.name() == CppcheckXml::Parser)
                 clangParser = true;
@@ -890,7 +894,11 @@ bool ProjectFile::write(const QString &filename)
     xmlWriter.writeCharacters(mCheckHeaders ? "true" : "false");
     xmlWriter.writeEndElement();
 
-    xmlWriter.writeStartElement(CppcheckXml::CheckUnusedTemplatesElementName);
+    xmlWriter.writeStartElement( CppcheckXml::AutoFix );
+    xmlWriter.writeCharacters( mAutoFix ? "true" : "false" );
+    xmlWriter.writeEndElement();
+
+    xmlWriter.writeStartElement( CppcheckXml::CheckUnusedTemplatesElementName );
     xmlWriter.writeCharacters(mCheckUnusedTemplates ? "true" : "false");
     xmlWriter.writeEndElement();
 

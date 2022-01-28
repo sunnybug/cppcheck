@@ -937,6 +937,7 @@ Settings MainWindow::getCppcheckSettings()
         result.maxTemplateRecursion = mProjectFile->getMaxTemplateRecursion();
         result.checkHeaders = mProjectFile->getCheckHeaders();
         result.checkUnusedTemplates = mProjectFile->getCheckUnusedTemplates();
+        result.autoFix = mProjectFile->IsAutoFix();
         result.safeChecks.classes = mProjectFile->safeChecks.classes;
         result.safeChecks.externalFunctions = mProjectFile->safeChecks.externalFunctions;
         result.safeChecks.internalFunctions = mProjectFile->safeChecks.internalFunctions;

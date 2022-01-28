@@ -794,8 +794,7 @@ bool ImportProject::importVcxproj(const std::string &filename, std::map<std::str
             for (const ItemDefinitionGroup &i : itemDefinitionGroupList) {
                 if (!i.conditionIsTrue(p))
                     continue;
-                if ( fs.precompiledHeaderFile.empty() )
-                    fs.precompiledHeaderFile = i.precompiledHeaderFile;
+                fs.precompiledHeaderFile = i.precompiledHeaderFile;
                 if (i.cppstd == Standards::CPP11)
                     fs.standard = "c++11";
                 else if (i.cppstd == Standards::CPP14)
@@ -1157,9 +1156,11 @@ bool ImportProject::importCppcheckGuiProject(std::istream &istr, Settings *setti
             temp.relativePaths = true;
         } else if (strcmp(node->Name(), CppcheckXml::BugHunting) == 0)
             temp.bugHunting = true;
-        else if (strcmp(node->Name(), CppcheckXml::BuildDirElementName) == 0)
-            temp.buildDir = joinRelativePath(path, node->GetText() ? node->GetText() : "");
-        else if (strcmp(node->Name(), CppcheckXml::IncludeDirElementName) == 0)
+        else if ( strcmp( node->Name(), CppcheckXml::BuildDirElementName ) == 0 )
+            temp.buildDir = joinRelativePath( path, node->GetText() ? node->GetText() : "" );
+        else if (strcmp(node->Name(), CppcheckXml::AutoFix) == 0)
+            temp.autoFix = ( strcmp( node->GetText(), "true" ) == 0 );
+        else if ( strcmp( node->Name(), CppcheckXml::IncludeDirElementName ) == 0 )
             temp.includePaths = readXmlStringList(node, path, CppcheckXml::DirElementName, CppcheckXml::DirNameAttrib);
         else if (strcmp(node->Name(), CppcheckXml::DefinesElementName) == 0)
             temp.userDefines = join(readXmlStringList(node, "", CppcheckXml::DefineName, CppcheckXml::DefineNameAttrib), ";");
@@ -1266,7 +1267,8 @@ bool ImportProject::importCppcheckGuiProject(std::istream &istr, Settings *setti
     settings->userUndefs = temp.userUndefs;
     settings->addons = temp.addons;
     settings->clang = temp.clang;
-    settings->clangTidy = temp.clangTidy;
+    settings->clangTidy    = temp.clangTidy;
+    settings->autoFix    = temp.autoFix;
 
     for (const std::string &p : paths)
         guiProject.pathNames.push_back(p);
