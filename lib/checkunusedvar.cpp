@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1425,6 +1425,19 @@ void CheckUnusedVar::checkStructMemberUsage()
             if (var && (var->isExtern() || (var->isGlobal() && !var->isStatic())) && var->typeEndToken()->str() == scope.className) {
                 bailout = true;
                 break;
+            }
+            if (var && (var->typeStartToken()->str() == scope.className || var->typeEndToken()->str() == scope.className)) {
+                const std::string addressPattern("!!" + scope.className + " & " + var->name()); // cast from struct
+                const Token* addrTok = scope.bodyEnd;
+                do {
+                    addrTok = Token::findmatch(addrTok, addressPattern.c_str());
+                    if ((addrTok && addrTok->str() == ")" && addrTok->link()->isCast()) || isCPPCast(addrTok)) {
+                        bailout = true;
+                        break;
+                    }
+                    if (addrTok)
+                        addrTok = addrTok->next();
+                } while (addrTok);
             }
         }
         if (bailout)

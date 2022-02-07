@@ -29,6 +29,23 @@
 #include <wchar.h>
 #include <string.h>
 
+void invalidFunctionArg_fseeko(FILE* stream, off_t offset, int origin)
+{
+    // cppcheck-suppress invalidFunctionArg
+    (void)fseeko(stream, offset, -1);
+    // cppcheck-suppress invalidFunctionArg
+    (void)fseeko(stream, offset, 3);
+    // cppcheck-suppress invalidFunctionArg
+    (void)fseeko(stream, offset, 42+SEEK_SET);
+    // cppcheck-suppress invalidFunctionArg
+    (void)fseeko(stream, offset, SEEK_SET+42);
+    // No warning is expected for
+    (void)fseeko(stream, offset, origin);
+    (void)fseeko(stream, offset, SEEK_SET);
+    (void)fseeko(stream, offset, SEEK_CUR);
+    (void)fseeko(stream, offset, SEEK_END);
+}
+
 char * overlappingWriteFunction_stpcpy(char *src, char *dest)
 {
     // No warning shall be shown:
@@ -266,6 +283,15 @@ void * memleak_mmap2() // #8327
     if (data != MAP_FAILED)
         return data;
     return NULL;
+}
+
+void * identicalCondition_mmap(int fd, size_t size) // #9940
+{
+    void* buffer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (buffer == MAP_FAILED) {
+        return NULL;
+    }
+    return buffer;
 }
 
 void resourceLeak_fdopen(int fd)

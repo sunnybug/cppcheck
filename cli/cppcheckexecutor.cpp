@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,8 +62,7 @@
 #   include <ucontext.h>
 #endif
 #ifdef __linux__
-#include <sys/syscall.h>
-#include <sys/types.h>
+#include <syscall.h>
 #endif
 #endif
 

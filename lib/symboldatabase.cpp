@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -639,7 +639,7 @@ void SymbolDatabase::createSymbolDatabaseFindAllScopes()
                 }
                 // function prototype?
                 else if (declEnd && declEnd->str() == ";") {
-                    if (tok->previous() && tok->previous()->str() == "::" &&
+                    if (tok->astParent() && tok->astParent()->str() == "::" &&
                         Token::Match(declEnd->previous(), "default|delete")) {
                         addClassFunction(&scope, &tok, argStart);
                         continue;
@@ -1438,6 +1438,8 @@ void SymbolDatabase::createSymbolDatabaseEscapeFunctions()
             continue;
         Function * function = scope.function;
         if (!function)
+            continue;
+        if (Token::findsimplematch(scope.bodyStart, "return", scope.bodyEnd))
             continue;
         function->isEscapeFunction(isReturnScope(scope.bodyEnd, &mSettings->library, nullptr, true));
     }
@@ -5176,6 +5178,11 @@ const Function* Scope::findFunction(const Token *tok, bool requireConst) const
             // Try to evaluate the apparently more complex expression
             else if (check->isCPP()) {
                 const Token *vartok = arguments[j];
+                if (vartok->str() == ".") {
+                    const Token* rml = nextAfterAstRightmostLeaf(vartok);
+                    if (rml)
+                        vartok = rml->previous();
+                }
                 while (vartok->isUnaryOp("&") || vartok->isUnaryOp("*"))
                     vartok = vartok->astOperand1();
                 const Variable* var = vartok->variable();
@@ -7093,12 +7100,16 @@ ValueType::MatchResult ValueType::matchParameter(const ValueType *call, const Va
             return ValueType::MatchResult::FALLBACK2;
         return ValueType::MatchResult::NOMATCH; // TODO
     }
-    if (call->pointer > 0 && ((call->constness | func->constness) != func->constness))
-        return ValueType::MatchResult::NOMATCH;
+    if (call->pointer > 0) {
+        if ((call->constness | func->constness) != func->constness)
+            return ValueType::MatchResult::NOMATCH;
+        if (call->constness == 0 && func->constness != 0 && func->reference != Reference::None)
+            return ValueType::MatchResult::NOMATCH;
+    }
     if (call->type != func->type) {
         if (call->type == ValueType::Type::VOID || func->type == ValueType::Type::VOID)
             return ValueType::MatchResult::FALLBACK1;
-        if (call->pointer > 0 && func->pointer > 0)
+        if (call->pointer > 0)
             return func->type == ValueType::UNKNOWN_TYPE ? ValueType::MatchResult::UNKNOWN : ValueType::MatchResult::NOMATCH;
         if (call->isIntegral() && func->isIntegral())
             return call->type < func->type ?

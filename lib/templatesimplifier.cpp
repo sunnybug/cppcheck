@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@
 #include <map>
 #include <memory>
 #include <stack>
-#include <type_traits>
 #include <utility>
 
 static Token *skipRequires(Token *tok)
@@ -2141,7 +2140,7 @@ void TemplateSimplifier::expandTemplate(
                             addNamespace(templateDeclaration, tok3);
                         }
                         mTokenList.addtoken(newName, tok3);
-                    } else if (!Token::Match(tok3->next(), ":|{|=|;"))
+                    } else if (!Token::Match(tok3->next(), ":|{|=|;|["))
                         tok3->str(newName);
                     continue;
                 }

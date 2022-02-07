@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2699,7 +2699,7 @@ static void getLHSVariablesRecursive(std::vector<const Variable*>& vars, const T
 std::vector<const Variable*> getLHSVariables(const Token* tok)
 {
     std::vector<const Variable*> result;
-    if (!Token::Match(tok, "%assign%"))
+    if (!Token::Match(tok, "%assign%|(|{"))
         return result;
     if (!tok->astOperand1())
         return result;

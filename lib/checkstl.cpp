@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1370,7 +1370,7 @@ void CheckStl::eraseCheckLoopVar(const Scope &scope, const Variable *var)
         // Vector erases are handled by invalidContainer check
         if (isVector(tok->tokAt(-3)))
             continue;
-        if (Token::simpleMatch(tok->astParent(), "="))
+        if (Token::Match(tok->astParent(), "=|return"))
             continue;
         // Iterator is invalid..
         int indentlevel = 0U;

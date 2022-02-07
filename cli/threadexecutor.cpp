@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@
 #ifdef __SVR4  // Solaris
 #include <sys/loadavg.h>
 #endif
+
 #ifdef THREADING_MODEL_FORK
 #if defined(__linux__)
 #include <sys/prctl.h>
@@ -45,8 +46,10 @@
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <csignal>
 #include <unistd.h>
 #endif
+
 #ifdef THREADING_MODEL_WIN
 #include <future>
 #include <numeric>

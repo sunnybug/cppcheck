@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -3864,6 +3864,95 @@ private:
               "  auto& [foo, bar] = t;\n"
               "  std::cout << foo << bar << std::endl;\n"
               "  return foo < bar;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        // #10484
+        check("void f() {\n"
+              "    static bool init = true;\n"
+              "    if (init)\n"
+              "        init = false;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f() {\n"
+              "    static bool init(true);\n"
+              "    if (init)\n"
+              "        init = false;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f() {\n"
+              "    static bool init{ true };\n"
+              "    if (init)\n"
+              "        init = false;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        // #10248
+        check("void f() {\n"
+              "    static int var(1);\n"
+              "    if (var == 1) {}\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f() {\n"
+              "    static int var{ 1 };\n"
+              "    if (var == 1) {}\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void Fun();\n"
+              "using Fn = void (*)();\n"
+              "void f() {\n"
+              "    static Fn logger = nullptr;\n"
+              "    if (logger == nullptr)\n"
+              "        logger = Fun;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void Fun();\n"
+              "using Fn = void (*)();\n"
+              "void f() {\n"
+              "    static Fn logger(nullptr);\n"
+              "    if (logger == nullptr)\n"
+              "        logger = Fun;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void Fun();\n"
+              "using Fn = void (*)();\n"
+              "void f() {\n"
+              "    static Fn logger{ nullptr };\n"
+              "    if (logger == nullptr)\n"
+              "        logger = Fun;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void Fun();\n"
+              "typedef void (*Fn)();\n"
+              "void f() {\n"
+              "    static Fn logger = nullptr;\n"
+              "    if (logger == nullptr)\n"
+              "        logger = Fun;\n"
+              "}\n");
+        TODO_ASSERT_EQUALS("", "[test.cpp:5]: (style) Condition 'logger==nullptr' is always true\n", errout.str());
+
+        check("void Fun();\n"
+              "typedef void (*Fn)();\n"
+              "void f() {\n"
+              "    static Fn logger(nullptr);\n"
+              "    if (logger == nullptr)\n"
+              "        logger = Fun;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void Fun();\n"
+              "typedef void (*Fn)();\n"
+              "void f() {\n"
+              "    static Fn logger{ nullptr };\n"
+              "    if (logger == nullptr)\n"
+              "        logger = Fun;\n"
               "}\n");
         ASSERT_EQUALS("", errout.str());
 

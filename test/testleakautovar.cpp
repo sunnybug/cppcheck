@@ -1,6 +1,6 @@
 /*
  * Cppcheck - A tool for static C/C++ code analysis
- * Copyright (C) 2007-2021 Cppcheck team.
+ * Copyright (C) 2007-2022 Cppcheck team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -708,12 +708,22 @@ private:
         ASSERT_EQUALS("[test.cpp:4]: (error) Dereferencing 'ptr' after it is deallocated / released\n", errout.str());
     }
 
-    void deallocuse9() {  // #9781
-        check("void f(Type* p) {\n"
+    void deallocuse9() {
+        check("void f(Type* p) {\n" // #9781
               "  std::shared_ptr<Type> sp(p);\n"
               "  bool b = p->foo();\n"
               "  return b;\n"
               "}\n", /*cpp*/ true);
+        ASSERT_EQUALS("", errout.str());
+
+        check("struct A {\n" // #8635
+              "    std::vector<std::unique_ptr<A>> array_;\n"
+              "    A* foo() {\n"
+              "        A* a = new A();\n"
+              "        array_.push_back(std::unique_ptr<A>(a));\n"
+              "        return a;\n"
+              "    }\n"
+              "};\n", /*cpp*/ true);
         ASSERT_EQUALS("", errout.str());
     }
 
