@@ -17,7 +17,6 @@
  */
 
 #include "checkunusedfunctions.h"
-#include "config.h"
 #include "errortypes.h"
 #include "platform.h"
 #include "settings.h"
@@ -34,7 +33,7 @@ public:
 private:
     Settings settings;
 
-    void run() OVERRIDE {
+    void run() override {
         settings.severity.enable(Severity::style);
 
         TEST_CASE(incondition);
@@ -89,7 +88,7 @@ private:
         checkUnusedFunctions.parseTokens(tokenizer,  "someFile.c", &settings);
         // check() returns error if and only if errout is not empty.
         if ((checkUnusedFunctions.check)(this, settings)) {
-            ASSERT(errout.str() != "");
+            ASSERT(!errout.str().empty());
         } else {
             ASSERT_EQUALS("", errout.str());
         }

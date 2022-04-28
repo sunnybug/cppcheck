@@ -17,7 +17,6 @@
  */
 
 #include "checkother.h"
-#include "config.h"
 #include "errortypes.h"
 #include "library.h"
 #include "platform.h"
@@ -46,7 +45,7 @@ public:
 private:
     Settings _settings;
 
-    void run() OVERRIDE {
+    void run() override {
         LOAD_LIB_2(_settings.library, "std.cfg");
 
 
@@ -96,6 +95,9 @@ private:
         TEST_CASE(varScope25);      // time_t
         TEST_CASE(varScope26);      // range for loop, map
         TEST_CASE(varScope27);      // #7733 - #if
+        TEST_CASE(varScope28);      // #10527
+        TEST_CASE(varScope29);      // #10888
+        TEST_CASE(varScope30);      // #8541
 
         TEST_CASE(oldStylePointerCast);
         TEST_CASE(invalidPointerCast);
@@ -156,6 +158,7 @@ private:
         TEST_CASE(duplicateExpression11); // #8916 (function call)
         TEST_CASE(duplicateExpression12); // #10026
         TEST_CASE(duplicateExpression13); // #7899
+        TEST_CASE(duplicateExpression14); // #9871
         TEST_CASE(duplicateExpressionLoop);
         TEST_CASE(duplicateValueTernary);
         TEST_CASE(duplicateExpressionTernary); // #6391
@@ -230,6 +233,7 @@ private:
         TEST_CASE(doubleMove1);
         TEST_CASE(doubleMoveMemberInitialization1);
         TEST_CASE(doubleMoveMemberInitialization2);
+        TEST_CASE(doubleMoveMemberInitialization3); // #9974
         TEST_CASE(moveAndAssign1);
         TEST_CASE(moveAndAssign2);
         TEST_CASE(moveAssignMoveAssign);
@@ -1310,6 +1314,69 @@ private:
         ASSERT_EQUALS("[test.cpp:4]: (style) The scope of the variable 'x' can be reduced.\n", errout.str());
     }
 
+    void varScope28() {
+        check("void f() {\n" // #10527
+              "    int i{};\n"
+              "    if (double d = g(i); d == 1.0) {}\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+    }
+
+    void varScope29() { // #10888
+        check("enum E { E0 };\n"
+              "struct S { int i; };\n"
+              "void f(int b) {\n"
+              "    enum E e;\n"
+              "    struct S s;\n"
+              "    if (b) {\n"
+              "        e = E0;\n"
+              "        s.i = 0;\n"
+              "        g(e, s);\n"
+              "    }\n"
+              "}\n", "test.c");
+        ASSERT_EQUALS("[test.c:4]: (style) The scope of the variable 'e' can be reduced.\n"
+                      "[test.c:5]: (style) The scope of the variable 's' can be reduced.\n",
+                      errout.str());
+
+        check("void f(bool b) {\n"
+              "    std::string s;\n"
+              "    if (b) {\n"
+              "        s = \"abc\";\n"
+              "        g(s);\n"
+              "    }\n"
+              "}");
+        ASSERT_EQUALS("[test.cpp:2]: (style) The scope of the variable 's' can be reduced.\n", errout.str());
+
+        check("auto foo(std::vector<int>& vec, bool flag) {\n"
+              "    std::vector<int> dummy;\n"
+              "    std::vector<int>::iterator iter;\n"
+              "    if (flag)\n"
+              "        iter = vec.begin();\n"
+              "    else {\n"
+              "        dummy.push_back(42);\n"
+              "        iter = dummy.begin();\n"
+              "    }\n"
+              "    return *iter;\n"
+              "}");
+        ASSERT_EQUALS("", errout.str());
+    }
+
+    void varScope30() { // #8541
+        check("bool f(std::vector<int>& v, int i) {\n"
+              "    int n = 0;\n"
+              "    bool b = false;\n"
+              "    std::for_each(v.begin(), v.end(), [&](int j) {\n"
+              "        if (j == i) {\n"
+              "            ++n;\n"
+              "            if (n > 5)\n"
+              "                b = true;\n"
+              "        }\n"
+              "    });\n"
+              "    return b;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+    }
+
 #define checkOldStylePointerCast(code) checkOldStylePointerCast_(code, __FILE__, __LINE__)
     void checkOldStylePointerCast_(const char code[], const char* file, int line) {
         // Clear the error buffer..
@@ -1450,6 +1517,56 @@ private:
                                  "  v.push_back((Base*)new Derived);\n"
                                  "}");
         ASSERT_EQUALS("[test.cpp:5]: (style) C-style pointer casting\n", errout.str());
+
+        // #7709
+        checkOldStylePointerCast("typedef struct S S;\n"
+                                 "typedef struct S SS;\n"
+                                 "typedef class C C;\n"
+                                 "typedef long LONG;\n"
+                                 "typedef long* LONGP;\n"
+                                 "struct T {};\n"
+                                 "typedef struct T TT;\n"
+                                 "typedef struct T2 {} TT2;\n"
+                                 "void f(int* i) {\n"
+                                 "    S* s = (S*)i;\n"
+                                 "    SS* ss = (SS*)i;\n"
+                                 "    struct S2* s2 = (struct S2*)i;\n"
+                                 "    C* c = (C*)i;\n"
+                                 "    class C2* c2 = (class C2*)i;\n"
+                                 "    long* l = (long*)i;\n"
+                                 "    LONG* l2 = (LONG*)i;\n"
+                                 "    LONGP l3 = (LONGP)i;\n"
+                                 "    TT* tt = (TT*)i;\n"
+                                 "    TT2* tt2 = (TT2*)i;\n"
+                                 "}\n");
+        ASSERT_EQUALS("[test.cpp:10]: (style) C-style pointer casting\n"
+                      "[test.cpp:11]: (style) C-style pointer casting\n"
+                      "[test.cpp:12]: (style) C-style pointer casting\n"
+                      "[test.cpp:13]: (style) C-style pointer casting\n"
+                      "[test.cpp:14]: (style) C-style pointer casting\n"
+                      "[test.cpp:15]: (style) C-style pointer casting\n"
+                      "[test.cpp:16]: (style) C-style pointer casting\n"
+                      "[test.cpp:17]: (style) C-style pointer casting\n"
+                      "[test.cpp:18]: (style) C-style pointer casting\n"
+                      "[test.cpp:19]: (style) C-style pointer casting\n",
+                      errout.str());
+
+        // #8649
+        checkOldStylePointerCast("struct S {};\n"
+                                 "void g(S*& s);\n"
+                                 "void f(int i) {\n"
+                                 "    g((S*&)i);\n"
+                                 "    S*& r = (S*&)i;\n"
+                                 "}\n");
+        ASSERT_EQUALS("[test.cpp:4]: (style) C-style pointer casting\n"
+                      "[test.cpp:5]: (style) C-style pointer casting\n",
+                      errout.str());
+
+        // #10823
+        checkOldStylePointerCast("void f(void* p) {\n"
+                                 "    auto h = reinterpret_cast<void (STDAPICALLTYPE*)(int)>(p);\n"
+                                 "}\n");
+        ASSERT_EQUALS("", errout.str());
     }
 
 #define checkInvalidPointerCast(...) checkInvalidPointerCast_(__FILE__, __LINE__, __VA_ARGS__)
@@ -1594,6 +1711,16 @@ private:
         ASSERT_EQUALS("[test.cpp:2]: (performance) Function parameter 'foo' should be passed by const reference.\n", errout.str());
 
         check("void f(const std::string &str) {}");
+        ASSERT_EQUALS("", errout.str());
+
+        // The idiomatic way of passing a std::string_view is by value
+        check("void f(const std::string_view str) {}");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f(std::string_view str) {}");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f(const std::string_view &str) {}");
         ASSERT_EQUALS("", errout.str());
 
         check("void f(const std::vector<int> v) {}");
@@ -2676,6 +2803,18 @@ private:
               "    s.g(0, PC);\n"
               "};\n");
         ASSERT_EQUALS("", errout.str());
+
+        // #10785
+        check("template <class T, class C>\n"
+              "struct d {\n"
+              "    T& g(C& c, T C::*f) { return c.*f; }\n"
+              "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f(std::map<int, int>& m) {\n"
+              "    std::cout << m[0] << std::endl;\n"
+              "};\n");
+        ASSERT_EQUALS("", errout.str());
     }
 
     void constParameterCallback() {
@@ -2831,6 +2970,84 @@ private:
               "  unsigned char x[2];\n"
               "  istr >> x[0];\n"
               "}");
+        ASSERT_EQUALS("", errout.str());
+
+        // #10744
+        check("S& f() {\n"
+              "    static S* p = new S();\n"
+              "    return *p;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("int f() {\n"
+              "    static int i[1] = {};\n"
+              "    return i[0];\n"
+              "}\n");
+        ASSERT_EQUALS("[test.cpp:2]: (style) Variable 'i' can be declared with const\n", errout.str());
+
+        check("int f() {\n"
+              "    static int i[] = { 0 };\n"
+              "    int j = i[0] + 1;\n"
+              "    return j;\n"
+              "}\n");
+        ASSERT_EQUALS("[test.cpp:2]: (style) Variable 'i' can be declared with const\n", errout.str());
+
+        // #10471
+        check("void f(std::array<int, 1> const& i) {\n"
+              "    if (i[0] == 0) {}\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        // #10466
+        check("void f(const std::vector<int*>& v) {\n"
+              "    for (const auto& p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "    for (const auto* p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f(std::vector<int*>& v) {\n"
+              "    for (const auto& p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "    for (const auto* p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "}\n");
+        ASSERT_EQUALS("[test.cpp:1]: (style) Parameter 'v' can be declared with const\n", errout.str());
+
+        check("void f(std::vector<const int*>& v) {\n"
+              "    for (const auto& p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "    for (const auto* p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "}\n");
+        ASSERT_EQUALS("[test.cpp:1]: (style) Parameter 'v' can be declared with const\n", errout.str());
+
+        check("void f(const std::vector<const int*>& v) {\n"
+              "    for (const auto& p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "    for (const auto* p : v)\n"
+              "        if (p == nullptr) {}\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f(const int* const p) {\n"
+              "    if (p == nullptr) {}\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void g(int*);\n"
+              "void f(int* const* pp) {\n"
+              "    int* p = pp[0];\n"
+              "    g(p);\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("template <typename T>\n"
+              "struct S {\n"
+              "    static bool f(const T& t) { return t != nullptr; }\n"
+              "};\n"
+              "S<int*> s;\n");
         ASSERT_EQUALS("", errout.str());
     }
 
@@ -3989,6 +4206,11 @@ private:
               "    return 1;\n" // <- clarify for tools that function does not continue..
               "}");
         ASSERT_EQUALS("", errout.str());
+
+        check("void f() {\n"
+              "    enum : uint8_t { A, B } var = A;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
     }
 
 
@@ -4252,7 +4474,7 @@ private:
               "    {\n"
               "        x = y = z = 0.0;\n"
               "    }\n"
-              "    V( double x, const double y, const double &z )\n"
+              "    V( double x, const double y_, const double &z_)\n"
               "    {\n"
               "        x = x; y = y; z = z;\n"
               "    }\n"
@@ -4663,6 +4885,11 @@ private:
               "    (***c)++;\n"
               "    return c;\n"
               "}");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f(const int*** p) {\n" // #10923
+              "    delete[] **p;\n"
+              "}\n");
         ASSERT_EQUALS("", errout.str());
 
         check("void *f(char** c) {\n"
@@ -5511,6 +5738,16 @@ private:
         ASSERT_EQUALS("", errout.str());
     }
 
+    void duplicateExpression14() { //#9871
+        check("int f() {\n"
+              "    int k = 7;\n"
+              "    int* f = &k;\n"
+              "    int* g = &k;\n"
+              "    return (f + 4 != g + 4);\n"
+              "}\n");
+        ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:4] -> [test.cpp:5]: (style) The comparison 'f+4 != g+4' is always false because 'f+4' and 'g+4' represent the same value.\n", errout.str());
+    }
+
     void duplicateExpressionLoop() {
         check("void f() {\n"
               "    int a = 1;\n"
@@ -5676,6 +5913,13 @@ private:
               "    static int b = 0;\n"
               "    int& x = q ? a : b;\n"
               "    ++x;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("struct S { int a, b; };\n" // #10107
+              "S f(bool x, S s) {\n"
+              "    (x) ? f.a = 42 : f.b = 42;\n"
+              "    return f;\n"
               "}\n");
         ASSERT_EQUALS("", errout.str());
     }
@@ -7606,7 +7850,7 @@ private:
               "  *reg = 12;\n"
               "  *reg = 34;\n"
               "}");
-        ASSERT_EQUALS("", errout.str());
+        ASSERT_EQUALS("test.cpp:2:style:C-style pointer casting\n", errout.str());
     }
 
     void redundantVarAssignment_trivial() {
@@ -7746,6 +7990,15 @@ private:
               "    f();\n"
               "    return y;\n"
               "}");
+        ASSERT_EQUALS("", errout.str());
+
+        // #10228
+        check("std::tuple<int, int> g();\n"
+              "void h(int);\n"
+              "void f() {\n"
+              "    auto [a, b] = g();\n"
+              "    auto l = [a = a]() { h(i); };\n"
+              "}\n");
         ASSERT_EQUALS("", errout.str());
     }
 
@@ -7910,6 +8163,13 @@ private:
               "    std::shared_ptr<int> i = g();\n"
               "    h();\n"
               "    i = nullptr;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("int f(const std::vector<int>& v) {\n" // #9815
+              "    int i = g();\n"
+              "    i = std::distance(v.begin(), std::find_if(v.begin(), v.end(), [=](int j) { return i == j; }));\n"
+              "    return i;\n"
               "}\n");
         ASSERT_EQUALS("", errout.str());
     }
@@ -8445,6 +8705,10 @@ private:
               "    A a2;"
               "};", nullptr, false, false, true);
         ASSERT_EQUALS("[test.cpp:8]: (performance) Function parameter 'a2' should be passed by const reference.\n", errout.str());
+
+        check("std::map<int, int> m;\n" // #10817
+              "void f(const decltype(m)::const_iterator i) {}");
+        ASSERT_EQUALS("", errout.str());
     }
 
     void checkComparisonFunctionIsAlwaysTrueOrFalse() {
@@ -8499,6 +8763,16 @@ private:
               "    return &(*y);\n"
               "}\n", nullptr, false, true);
         ASSERT_EQUALS("[test.cpp:2]: (style) Redundant pointer operation on 'y' - it's already a pointer.\n", errout.str());
+
+        check("int f() {\n" // #10991
+              "    int value = 4;\n"
+              "    int result1 = *(&value);\n"
+              "    int result2 = *&value;\n"
+              "    return result1 + result2;\n"
+              "}\n", nullptr, false, true);
+        ASSERT_EQUALS("[test.cpp:3]: (style) Redundant pointer operation on 'value' - it's already a variable.\n"
+                      "[test.cpp:4]: (style) Redundant pointer operation on 'value' - it's already a variable.\n",
+                      errout.str());
 
         // no warning for bitwise AND
         check("void f(const int *b) {\n"
@@ -9053,6 +9327,17 @@ private:
         ASSERT_EQUALS("[test.cpp:5]: (warning) Access of moved variable 'b'.\n", errout.str());
     }
 
+    void doubleMoveMemberInitialization3() { // #9974
+        check("struct A { int i; };\n"
+              "struct B { A a1; A a2; };\n"
+              "B f() {\n"
+              "    A a1 = { 1 };\n"
+              "    A a2 = { 2 };\n"
+              "    return { .a1 = std::move(a1), .a2 = std::move(a2) };\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+    }
+
     void moveAndAssign1() {
         check("A g(A a);\n"
               "void f() {\n"
@@ -9365,6 +9650,29 @@ private:
               "    }\n"
               "};");
         ASSERT_EQUALS("", errout.str());
+
+        check("struct S {\n"
+              "    int i{};\n"
+              "    void f() { int i; }\n"
+              "};\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:3]: (style) Local variable 'i' shadows outer variable\n", errout.str());
+
+        check("struct S {\n"
+              "    int i{};\n"
+              "    std::vector<int> v;\n"
+              "    void f() const { for (const int& i : v) {} }\n"
+              "};\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:4]: (style) Local variable 'i' shadows outer variable\n", errout.str());
+
+        check("struct S {\n" // #10405
+              "    F* f{};\n"
+              "    std::list<F> fl;\n"
+              "    void S::f() const;\n"
+              "};\n"
+              "void S::f() const {\n"
+              "    for (const F& f : fl) {}\n"
+              "};\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:7]: (style) Local variable 'f' shadows outer variable\n", errout.str());
     }
 
     void knownArgument() {

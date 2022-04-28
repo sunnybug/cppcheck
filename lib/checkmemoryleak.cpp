@@ -26,7 +26,6 @@
 #include "symboldatabase.h"
 #include "token.h"
 #include "tokenize.h"
-#include "utils.h"
 
 #include <algorithm>
 #include <unordered_set>
@@ -303,7 +302,7 @@ void CheckMemoryLeak::reportErr(const Token *tok, Severity::SeverityType severit
 
 void CheckMemoryLeak::reportErr(const std::list<const Token *> &callstack, Severity::SeverityType severity, const std::string &id, const std::string &msg, const CWE &cwe) const
 {
-    const ErrorMessage errmsg(callstack, mTokenizer_ ? &mTokenizer_->list : nullptr, severity, id, msg, cwe, Certainty::normal, mSettings_->bugHunting);
+    const ErrorMessage errmsg(callstack, mTokenizer_ ? &mTokenizer_->list : nullptr, severity, id, msg, cwe, Certainty::normal);
     if (mErrorLogger_)
         mErrorLogger_->reportErr(errmsg);
     else
@@ -539,7 +538,7 @@ void CheckMemoryLeakInClass::check()
     // only check classes and structures
     for (const Scope * scope : symbolDatabase->classAndStructScopes) {
         for (const Variable &var : scope->varlist) {
-            if (!var.isStatic() && var.isPointer()) {
+            if (!var.isStatic() && (var.isPointer() || var.isPointerArray())) {
                 // allocation but no deallocation of private variables in public function..
                 const Token *tok = var.typeStartToken();
                 // Either it is of standard type or a non-derived type
@@ -593,7 +592,7 @@ void CheckMemoryLeakInClass::variable(const Scope *scope, const Token *tokVarnam
                 }
 
                 // Allocate..
-                if (!body || Token::Match(tok, "%varid% =", varid)) {
+                if (!body || Token::Match(tok, "%varid% =|[", varid)) {
                     // var1 = var2 = ...
                     // bail out
                     if (tok->strAt(-1) == "=")
@@ -605,7 +604,11 @@ void CheckMemoryLeakInClass::variable(const Scope *scope, const Token *tokVarnam
                         tok->strAt(-2) != scope->className)
                         return;
 
-                    AllocType alloc = getAllocationType(tok->tokAt(body ? 2 : 3), 0);
+                    const Token* allocTok = tok->tokAt(body ? 2 : 3);
+                    if (tok->astParent() && tok->astParent()->str() == "[" && tok->astParent()->astParent())
+                        allocTok = tok->astParent()->astParent()->astOperand2();
+
+                    AllocType alloc = getAllocationType(allocTok, 0);
                     if (alloc != CheckMemoryLeak::No) {
                         if (constructor)
                             allocInConstructor = true;
@@ -997,7 +1000,8 @@ void CheckMemoryLeakNoVar::checkForUnreleasedInputArgument(const Scope *scope)
 void CheckMemoryLeakNoVar::checkForUnusedReturnValue(const Scope *scope)
 {
     for (const Token *tok = scope->bodyStart; tok != scope->bodyEnd; tok = tok->next()) {
-        if (!Token::Match(tok, "%name% ("))
+        const bool isNew = mTokenizer->isCPP() && tok->str() == "new";
+        if (!isNew && !Token::Match(tok, "%name% ("))
             continue;
 
         if (tok->varId())
@@ -1007,21 +1011,27 @@ void CheckMemoryLeakNoVar::checkForUnusedReturnValue(const Scope *scope)
         if (allocType == No)
             continue;
 
-        if (tok != tok->next()->astOperand1())
+        if (tok != tok->next()->astOperand1() && !isNew)
             continue;
 
         if (isReopenStandardStream(tok))
             continue;
 
         // get ast parent, skip casts
-        const Token *parent = tok->next()->astParent();
+        const Token *parent = isNew ? tok->astParent() : tok->next()->astParent();
         while (parent && parent->str() == "(" && !parent->astOperand2())
             parent = parent->astParent();
 
-        if (!parent) {
+        bool warn = true;
+        if (isNew) {
+            const Token* typeTok = tok->next();
+            warn = typeTok && (typeTok->isStandardType() || mSettings->library.detectContainer(typeTok));
+        }
+
+        if (!parent && warn) {
             // Check if we are in a C++11 constructor
             const Token * closingBrace = Token::findmatch(tok, "}|;");
-            if (closingBrace->str() == "}" && Token::Match(closingBrace->link()->tokAt(-1), "%name%"))
+            if (closingBrace->str() == "}" && Token::Match(closingBrace->link()->tokAt(-1), "%name%") && (!isNew && precedes(tok, closingBrace->link())))
                 continue;
             returnValueNotUsedError(tok, tok->str());
         } else if (Token::Match(parent, "%comp%|!")) {

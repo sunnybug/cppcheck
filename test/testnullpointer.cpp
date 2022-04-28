@@ -18,7 +18,6 @@
 
 #include "check.h"
 #include "checknullpointer.h"
-#include "config.h"
 #include "ctu.h"
 #include "errortypes.h"
 #include "library.h"
@@ -44,7 +43,7 @@ public:
 private:
     Settings settings;
 
-    void run() OVERRIDE {
+    void run() override {
         LOAD_LIB_2(settings.library, "std.cfg");
         settings.severity.enable(Severity::warning);
 
@@ -136,6 +135,8 @@ private:
         TEST_CASE(nullpointer89); // #10640
         TEST_CASE(nullpointer90); // #6098
         TEST_CASE(nullpointer91); // #10678
+        TEST_CASE(nullpointer92);
+        TEST_CASE(nullpointer93); // #3929
         TEST_CASE(nullpointer_addressOf); // address of
         TEST_CASE(nullpointerSwitch); // #2626
         TEST_CASE(nullpointer_cast); // #4692
@@ -1136,6 +1137,15 @@ private:
               "}");
         ASSERT_EQUALS("[test.cpp:5]: (error) Null pointer dereference: f\n", errout.str());
 
+        check("int* g();\n" // #11007
+              "int* f() {\n"
+              "    static int* (*fun)() = 0;\n"
+              "    if (!fun)\n"
+              "        fun = g;\n"
+              "    return fun();\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
         // loops..
         check("void f() {\n"
               "    int *p = 0;\n"
@@ -1467,7 +1477,9 @@ private:
               "            : s->value - 1; // <-- null ptr dereference\n"
               "  return i;\n"
               "}");
-        TODO_ASSERT_EQUALS("[test.cpp:4]: (warning) Possible null pointer dereference: s\n", "", errout.str());
+        ASSERT_EQUALS(
+            "[test.cpp:3] -> [test.cpp:4]: (warning) Either the condition 's' is redundant or there is possible null pointer dereference: s.\n",
+            errout.str());
     }
 
     void nullpointer30() { // #6392
@@ -2681,6 +2693,45 @@ private:
         ASSERT_EQUALS("", errout.str());
     }
 
+    void nullpointer92()
+    {
+        check("bool g(bool);\n"
+              "int f(int* i) {\n"
+              "    if (!g(!!i)) return 0;\n"
+              "    return *i;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        check("bool g(bool);\n"
+              "int f(int* i) {\n"
+              "    if (!g(!i)) return 0;\n"
+              "    return *i;\n"
+              "}\n");
+        ASSERT_EQUALS("", errout.str());
+    }
+
+    void nullpointer93() // #3929
+    {
+        check("int* GetThing( ) { return 0; }\n"
+              "int main() {\n"
+              "        int* myNull = GetThing();\n"
+              "        *myNull=42;\n"
+              "        return 0;\n"
+              "}");
+        ASSERT_EQUALS("[test.cpp:4]: (error) Null pointer dereference: myNull\n", errout.str());
+
+        check("struct foo {\n"
+              "    int* GetThing(void) { return 0; }\n"
+              "};\n"
+              "int main(void) {\n"
+              "        foo myFoo;\n"
+              "        int* myNull = myFoo.GetThing();\n"
+              "        *myNull=42;\n"
+              "        return 0;\n"
+              "}");
+        ASSERT_EQUALS("[test.cpp:7]: (error) Null pointer dereference: myNull\n", errout.str());
+    }
+
     void nullpointer_addressOf() { // address of
         check("void f() {\n"
               "  struct X *x = 0;\n"
@@ -3588,7 +3639,7 @@ private:
               "    stringstream out;\n"
               "    out << ((ip >> 0) & 0xFF);\n"
               "    return out.str();\n"
-              "}n", true);
+              "}", true);
         ASSERT_EQUALS("", errout.str());
         // avoid regression from first fix attempt for #5811...
         check("void deserialize(const std::string &data) {\n"

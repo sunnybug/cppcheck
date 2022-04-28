@@ -586,7 +586,7 @@ bool Token::simpleMatch(const Token *tok, const char pattern[], size_t pattern_l
         return false; // shortcut
     const char *current = pattern;
     const char *end = pattern + pattern_len;
-    const char *next = (const char*)std::memchr(pattern, ' ', pattern_len);
+    const char *next = static_cast<const char*>(std::memchr(pattern, ' ', pattern_len));
     if (!next)
         next = end;
 
@@ -2065,6 +2065,7 @@ static void mergeAdjacent(std::list<ValueFlow::Value>& values)
             continue;
         }
         std::sort(adjValues.begin(), adjValues.end(), [&values](ValueIterator xx, ValueIterator yy) {
+            (void)values;
             assert(xx != values.end() && yy != values.end());
             return xx->compareValue(*yy, ValueFlow::less{});
         });
@@ -2132,7 +2133,7 @@ bool Token::addValue(const ValueFlow::Value &value)
         });
     }
 
-    // Dont add a value if its already known
+    // Don't add a value if its already known
     if (!value.isKnown() && mImpl->mValues &&
         std::any_of(mImpl->mValues->begin(), mImpl->mValues->end(), [&](const ValueFlow::Value& x) {
         return x.isKnown() && sameValueType(x, value) && !x.equalValue(value);
@@ -2181,6 +2182,8 @@ bool Token::addValue(const ValueFlow::Value &value)
 
         // Add value
         if (it == mImpl->mValues->end()) {
+            // If the errorPath has gotten this large then there must be something wrong
+            assert(value.errorPath.size() < 64);
             ValueFlow::Value v(value);
             if (v.varId == 0)
                 v.varId = mImpl->mVarId;
@@ -2242,6 +2245,7 @@ const ::Type* Token::typeOf(const Token* tok, const Token** typeTok)
         return nullptr;
     if (typeTok != nullptr)
         *typeTok = tok;
+    const Token* lhsVarTok{};
     if (Token::simpleMatch(tok, "return")) {
         const Scope *scope = tok->scope();
         if (!scope)
@@ -2264,8 +2268,8 @@ const ::Type* Token::typeOf(const Token* tok, const Token** typeTok)
         return function->retType;
     } else if (Token::Match(tok->previous(), "%type%|= (|{")) {
         return typeOf(tok->previous(), typeTok);
-    } else if (Token::simpleMatch(tok, "=")) {
-        return Token::typeOf(getLHSVariableToken(tok), typeTok);
+    } else if (Token::simpleMatch(tok, "=") && (lhsVarTok = getLHSVariableToken(tok)) != tok->next()) {
+        return Token::typeOf(lhsVarTok, typeTok);
     } else if (Token::simpleMatch(tok, ".")) {
         return Token::typeOf(tok->astOperand2(), typeTok);
     } else if (Token::simpleMatch(tok, "[")) {
@@ -2403,21 +2407,6 @@ const ValueFlow::Value* Token::getKnownValue(ValueFlow::Value::ValueType t) cons
         return value.isKnown() && value.valueType == t;
     });
     return it == mImpl->mValues->end() ? nullptr : &*it;
-}
-
-bool Token::isImpossibleIntValue(const MathLib::bigint val) const
-{
-    if (!mImpl->mValues)
-        return false;
-    for (const auto& v : *mImpl->mValues) {
-        if (v.isIntValue() && v.isImpossible() && v.intvalue == val)
-            return true;
-        if (v.isIntValue() && v.bound == ValueFlow::Value::Bound::Lower && val > v.intvalue)
-            return true;
-        if (v.isIntValue() && v.bound == ValueFlow::Value::Bound::Upper && val < v.intvalue)
-            return true;
-    }
-    return false;
 }
 
 const ValueFlow::Value* Token::getValue(const MathLib::bigint val) const

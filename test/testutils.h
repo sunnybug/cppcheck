@@ -20,15 +20,16 @@
 #define TestUtilsH
 
 #include "color.h"
-#include "config.h"
 #include "errorlogger.h"
 #include "settings.h"
 #include "suppressions.h"
 #include "tokenize.h"
 #include "tokenlist.h"
 
+#include <cstdio>
 #include <iosfwd>
 #include <list>
+#include <ostream>
 #include <string>
 
 class Token;
@@ -58,16 +59,30 @@ class SimpleSuppressor : public ErrorLogger {
 public:
     SimpleSuppressor(Settings &settings, ErrorLogger *next)
         : settings(settings), next(next) {}
-    void reportOut(const std::string &outmsg, Color = Color::Reset) OVERRIDE {
+    void reportOut(const std::string &outmsg, Color = Color::Reset) override {
         next->reportOut(outmsg);
     }
-    void reportErr(const ErrorMessage &msg) OVERRIDE {
+    void reportErr(const ErrorMessage &msg) override {
         if (!msg.callStack.empty() && !settings.nomsg.isSuppressed(msg.toSuppressionsErrorMessage()))
             next->reportErr(msg);
     }
 private:
     Settings &settings;
     ErrorLogger *next;
+};
+
+class ScopedFile {
+public:
+    ScopedFile(const std::string &name, const std::string &content) : mName(name) {
+        std::ofstream of(mName);
+        of << content;
+    }
+
+    ~ScopedFile() {
+        remove(mName.c_str());
+    }
+private:
+    std::string mName;
 };
 
 #endif // TestUtilsH

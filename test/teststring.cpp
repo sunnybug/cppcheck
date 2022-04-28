@@ -18,7 +18,6 @@
 
 
 #include "checkstring.h"
-#include "config.h"
 #include "errortypes.h"
 #include "settings.h"
 #include "testsuite.h"
@@ -34,7 +33,7 @@ public:
 private:
     Settings settings;
 
-    void run() OVERRIDE {
+    void run() override {
         settings.severity.enable(Severity::warning);
         settings.severity.enable(Severity::style);
 
@@ -135,6 +134,16 @@ private:
               "  abc[0] = 'a';\n"
               "}");
         ASSERT_EQUALS("[test.cpp:3] -> [test.cpp:2]: (error) Modifying string literal u\"abc\" directly or indirectly is undefined behaviour.\n", errout.str());
+
+        check("void foo() {\n" // #8332
+              "    int i;\n"
+              "    char *p  = \"string literal\";\n"
+              "    for( i = 0; i < strlen(p); i++) {\n"
+              "        p[i] = \'X\';\n" // <<
+              "    }\n"
+              "    printf(\"%s\\n\", p);\n"
+              "}");
+        ASSERT_EQUALS("[test.cpp:5] -> [test.cpp:3]: (error) Modifying string literal \"string literal\" directly or indirectly is undefined behaviour.\n", errout.str());
     }
 
     void alwaysTrueFalseStringCompare() {

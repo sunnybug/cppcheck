@@ -123,17 +123,25 @@ struct ForwardTraversal {
 
     template<class T, class F, REQUIRES("T must be a Token class", std::is_convertible<T*, const Token*> )>
     Progress traverseTok(T* tok, F f, bool traverseUnknown, T** out = nullptr) {
-        if (Token::Match(tok, "asm|goto|setjmp|longjmp"))
+        if (Token::Match(tok, "asm|goto"))
             return Break(Analyzer::Terminate::Bail);
-        else if (Token::simpleMatch(tok, "continue")) {
+        else if (Token::Match(tok, "setjmp|longjmp (")) {
+            // Traverse the parameters of the function before escaping
+            traverseRecursive(tok->next()->astOperand2(), f, traverseUnknown);
+            return Break(Analyzer::Terminate::Bail);
+        } else if (Token::simpleMatch(tok, "continue")) {
             if (loopEnds.empty())
                 return Break(Analyzer::Terminate::Escape);
             // If we are in a loop then jump to the end
             if (out)
                 *out = loopEnds.back();
-        } else if (Token::Match(tok, "return|throw") || isEscapeFunction(tok, &settings->library)) {
-            traverseRecursive(tok->astOperand1(), f, traverseUnknown);
+        } else if (Token::Match(tok, "return|throw")) {
             traverseRecursive(tok->astOperand2(), f, traverseUnknown);
+            traverseRecursive(tok->astOperand1(), f, traverseUnknown);
+            return Break(Analyzer::Terminate::Escape);
+        } else if (Token::Match(tok, "%name% (") && isEscapeFunction(tok, &settings->library)) {
+            // Traverse the parameters of the function before escaping
+            traverseRecursive(tok->next()->astOperand2(), f, traverseUnknown);
             return Break(Analyzer::Terminate::Escape);
         } else if (isUnevaluated(tok)) {
             if (out)
@@ -312,7 +320,7 @@ struct ForwardTraversal {
         return Token::findsimplematch(endBlock->link(), "goto", endBlock);
     }
 
-    bool hasJump(const Token* endBlock) {
+    static bool hasJump(const Token* endBlock) {
         return Token::findmatch(endBlock->link(), "goto|break", endBlock);
     }
 

@@ -23,7 +23,6 @@
 
 #include "config.h"
 #include "mathlib.h"
-#include "utils.h"
 
 #include <algorithm>
 #include <cassert>
@@ -43,6 +42,7 @@ class Token;
 class TokenList;
 class ValueType;
 class Variable;
+class Scope;
 
 template<class T>
 class ValuePtr;
@@ -458,6 +458,8 @@ namespace ValueFlow {
     std::vector<ValueFlow::Value> isOutOfBounds(const Value& size, const Token* indexTok, bool possible = true);
 }
 
+ValueFlow::Value asImpossible(ValueFlow::Value v);
+
 bool isContainerSizeChanged(const Token* tok, const Settings* settings = nullptr, int depth = 20);
 
 struct LifetimeToken {
@@ -518,5 +520,7 @@ CPPCHECKLIB ValueFlow::Value getLifetimeObjValue(const Token *tok, bool inconclu
 CPPCHECKLIB std::vector<ValueFlow::Value> getLifetimeObjValues(const Token* tok,
                                                                bool inconclusive = false,
                                                                MathLib::bigint path = 0);
+
+const Token* getEndOfExprScope(const Token* tok, const Scope* defaultScope = nullptr, bool smallest = true);
 
 #endif // valueflowH

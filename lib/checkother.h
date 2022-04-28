@@ -25,7 +25,6 @@
 #include "check.h"
 #include "config.h"
 #include "errortypes.h"
-#include "utils.h"
 
 #include <string>
 #include <vector>
@@ -57,7 +56,7 @@ public:
         : Check(myName(), tokenizer, settings, errorLogger) {}
 
     /** @brief Run checks against the normal token list */
-    void runChecks(const Tokenizer *tokenizer, const Settings *settings, ErrorLogger *errorLogger) OVERRIDE {
+    void runChecks(const Tokenizer *tokenizer, const Settings *settings, ErrorLogger *errorLogger) override {
         CheckOther checkOther(tokenizer, settings, errorLogger);
 
         // Checks
@@ -276,7 +275,7 @@ private:
     void incompleteArrayFillError(const Token* tok, const std::string& buffer, const std::string& function, bool boolean);
     void varFuncNullUBError(const Token *tok);
     void commaSeparatedReturnError(const Token *tok);
-    void redundantPointerOpError(const Token* tok, const std::string& varname, bool inconclusive);
+    void redundantPointerOpError(const Token* tok, const std::string& varname, bool inconclusive, bool addressOfDeref);
     void raceAfterInterlockedDecrementError(const Token* tok);
     void unusedLabelError(const Token* tok, bool inSwitch, bool hasIfdef);
     void unknownEvaluationOrder(const Token* tok);
@@ -289,7 +288,7 @@ private:
     void comparePointersError(const Token *tok, const ValueFlow::Value *v1, const ValueFlow::Value *v2);
     void checkModuloOfOneError(const Token *tok);
 
-    void getErrorMessages(ErrorLogger *errorLogger, const Settings *settings) const OVERRIDE {
+    void getErrorMessages(ErrorLogger *errorLogger, const Settings *settings) const override {
         CheckOther c(nullptr, settings, errorLogger);
 
         ErrorPath errorPath;
@@ -344,7 +343,7 @@ private:
         c.varFuncNullUBError(nullptr);
         c.nanInArithmeticExpressionError(nullptr);
         c.commaSeparatedReturnError(nullptr);
-        c.redundantPointerOpError(nullptr,  "varname", false);
+        c.redundantPointerOpError(nullptr,  "varname", false, /*addressOfDeref*/ true);
         c.unusedLabelError(nullptr, false, false);
         c.unusedLabelError(nullptr, false, true);
         c.unusedLabelError(nullptr, true, false);
@@ -370,7 +369,7 @@ private:
         return "Other";
     }
 
-    std::string classInfo() const OVERRIDE {
+    std::string classInfo() const override {
         return "Other checks\n"
 
                // error

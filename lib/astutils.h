@@ -24,17 +24,17 @@
 
 #include <functional>
 #include <set>
+#include <stack>
 #include <string>
 #include <vector>
 
+#include "config.h"
 #include "errortypes.h"
-#include "utils.h"
+#include "symboldatabase.h"
 
-class Function;
 class Library;
 class Settings;
 class Token;
-class Variable;
 
 enum class ChildrenToVisit {
     none,
@@ -47,8 +47,37 @@ enum class ChildrenToVisit {
 /**
  * Visit AST nodes recursively. The order is not "well defined"
  */
-void visitAstNodes(const Token *ast, std::function<ChildrenToVisit(const Token *)> visitor);
-void visitAstNodes(Token *ast, std::function<ChildrenToVisit(Token *)> visitor);
+template<class T, class TFunc, REQUIRES("T must be a Token class", std::is_convertible<T*, const Token*> )>
+void visitAstNodes(T *ast, const TFunc &visitor)
+{
+    if (!ast)
+        return;
+
+    std::stack<T *, std::vector<T *>> tokens;
+    T *tok = ast;
+    do {
+        ChildrenToVisit c = visitor(tok);
+
+        if (c == ChildrenToVisit::done)
+            break;
+        if (c == ChildrenToVisit::op2 || c == ChildrenToVisit::op1_and_op2) {
+            T *t2 = tok->astOperand2();
+            if (t2)
+                tokens.push(t2);
+        }
+        if (c == ChildrenToVisit::op1 || c == ChildrenToVisit::op1_and_op2) {
+            T *t1 = tok->astOperand1();
+            if (t1)
+                tokens.push(t1);
+        }
+
+        if (tokens.empty())
+            break;
+
+        tok = tokens.top();
+        tokens.pop();
+    } while (true);
+}
 
 const Token* findAstNode(const Token* ast, const std::function<bool(const Token*)>& pred);
 const Token* findExpression(const nonneg int exprid,
@@ -105,6 +134,8 @@ std::string astCanonicalType(const Token *expr);
 /** Is given syntax tree a variable comparison against value */
 const Token * astIsVariableComparison(const Token *tok, const std::string &comp, const std::string &rhs, const Token **vartok=nullptr);
 
+bool isVariableDecl(const Token* tok);
+
 bool isTemporary(bool cpp, const Token* tok, const Library* library, bool unknown = false);
 
 const Token* previousBeforeAstLeftmostLeaf(const Token* tok);
@@ -119,6 +150,7 @@ const Token* astParentSkipParens(const Token* tok);
 const Token* getParentMember(const Token * tok);
 
 const Token* getParentLifetime(const Token* tok);
+const Token* getParentLifetime(bool cpp, const Token* tok, const Library* library);
 
 bool astIsLHS(const Token* tok);
 bool astIsRHS(const Token* tok);
@@ -193,7 +225,7 @@ bool isConstFunctionCall(const Token* ftok, const Library& library);
 
 bool isConstExpression(const Token *tok, const Library& library, bool pure, bool cpp);
 
-bool isWithoutSideEffects(bool cpp, const Token* tok);
+bool isWithoutSideEffects(bool cpp, const Token* tok, bool checkArrayAccess = false, bool checkReference = true);
 
 bool isUniqueExpression(const Token* tok);
 
@@ -204,6 +236,11 @@ bool isReturnScope(const Token* const endToken,
                    const Library* library = nullptr,
                    const Token** unknownFunc = nullptr,
                    bool functionScope = false);
+
+/** Is tok within a scope of the given type, nested within var's scope? */
+bool isWithinScope(const Token* tok,
+                   const Variable* var,
+                   Scope::ScopeType type);
 
 /// Return the token to the function and the argument number
 const Token * getTokenArgumentFunction(const Token * tok, int& argn);

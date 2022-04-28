@@ -644,11 +644,25 @@ public:
         setFlag(fIsInline, b);
     }
 
+    bool isRemovedVoidParameter() const {
+        return getFlag(fIsRemovedVoidParameter);
+    }
+    void setRemovedVoidParameter(bool b) {
+        setFlag(fIsRemovedVoidParameter, b);
+    }
+
     bool isTemplate() const {
         return getFlag(fIsTemplate);
     }
     void isTemplate(bool b) {
         setFlag(fIsTemplate, b);
+    }
+
+    bool isSimplifiedScope() const {
+        return getFlag(fIsSimplifedScope);
+    }
+    void isSimplifiedScope(bool b) {
+        setFlag(fIsSimplifedScope, b);
     }
 
     bool isBitfield() const {
@@ -1156,8 +1170,6 @@ public:
         return mImpl->mValues->front().intvalue;
     }
 
-    bool isImpossibleIntValue(const MathLib::bigint val) const;
-
     const ValueFlow::Value* getValue(const MathLib::bigint val) const;
 
     const ValueFlow::Value* getMaxValue(bool condition, MathLib::bigint path = 0) const;
@@ -1254,7 +1266,9 @@ private:
         fIsSplitVarDeclEq       = (1 << 30), // set to true when variable declaration with initialization is split up ('int a=5;' => 'int a; a=5;')
         fIsImplicitInt          = (1U << 31),   // Is "int" token implicitly added?
         fIsInline               = (1ULL << 32), // Is this a inline type
-        fIsTemplate             = (1ULL << 33)
+        fIsTemplate             = (1ULL << 33),
+        fIsSimplifedScope       = (1ULL << 34), // scope added when simplifying e.g. if (int i = ...; ...)
+        fIsRemovedVoidParameter = (1ULL << 35), // A void function parameter has been removed
     };
 
     Token::Type mTokType;

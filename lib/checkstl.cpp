@@ -72,6 +72,21 @@ static bool isElementAccessYield(const Library::Container::Yield& yield)
     return contains({Library::Container::Yield::ITEM, Library::Container::Yield::AT_INDEX}, yield);
 }
 
+static bool containerAppendsElement(const Library::Container* container, const Token* parent)
+{
+    if (Token::Match(parent, ". %name% (")) {
+        Library::Container::Action action = container->getAction(parent->strAt(1));
+        if (contains({Library::Container::Action::INSERT,
+                      Library::Container::Action::CHANGE,
+                      Library::Container::Action::CHANGE_INTERNAL,
+                      Library::Container::Action::PUSH,
+                      Library::Container::Action::RESIZE},
+                     action))
+            return true;
+    }
+    return false;
+}
+
 static bool containerYieldsElement(const Library::Container* container, const Token* parent)
 {
     if (Token::Match(parent, ". %name% (")) {
@@ -86,7 +101,7 @@ static const Token* getContainerIndex(const Library::Container* container, const
 {
     if (Token::Match(parent, ". %name% (")) {
         Library::Container::Yield yield = container->getYield(parent->strAt(1));
-        if (isElementAccessYield(yield) && !Token::simpleMatch(parent->tokAt(2), "( )"))
+        if (yield == Library::Container::Yield::AT_INDEX && !Token::simpleMatch(parent->tokAt(2), "( )"))
             return parent->tokAt(2)->astOperand2();
     }
     if (!container->arrayLike_indexOp && !container->stdStringLike)
@@ -133,7 +148,8 @@ void CheckStl::outOfBounds()
                     continue;
                 if (!value.errorSeverity() && !mSettings->severity.isEnabled(Severity::warning))
                     continue;
-                if (value.intvalue == 0 && (indexTok || containerYieldsElement(container, parent))) {
+                if (value.intvalue == 0 && (indexTok || (containerYieldsElement(container, parent) &&
+                                                         !containerAppendsElement(container, parent)))) {
                     std::string indexExpr;
                     if (indexTok && !indexTok->hasKnownValue())
                         indexExpr = indexTok->expressionString();
@@ -662,31 +678,6 @@ void CheckStl::sameIteratorExpressionError(const Token *tok)
     reportError(tok, Severity::style, "sameIteratorExpression", "Same iterators expression are used for algorithm.", CWE664, Certainty::normal);
 }
 
-static const std::set<std::string> algorithm2 = { // func(begin1, end1
-    "binary_search", "copy", "copy_if", "equal_range"
-    , "generate", "is_heap", "is_heap_until", "is_partitioned"
-    , "is_permutation", "is_sorted", "is_sorted_until", "lower_bound", "make_heap", "max_element", "minmax_element"
-    , "min_element", "mismatch", "move", "move_backward", "next_permutation", "partition", "partition_copy"
-    , "partition_point", "pop_heap", "prev_permutation", "push_heap", "random_shuffle", "remove", "remove_copy"
-    , "remove_copy_if", "remove_if", "replace", "replace_copy", "replace_copy_if", "replace_if", "reverse", "reverse_copy"
-    , "shuffle", "sort", "sort_heap", "stable_partition", "stable_sort", "swap_ranges", "transform", "unique"
-    , "unique_copy", "upper_bound", "string", "wstring", "u16string", "u32string"
-};
-static const std::set<std::string> algorithm22 = { // func(begin1, end1, begin2, end2
-    "includes", "lexicographical_compare", "merge", "partial_sort_copy"
-    , "set_difference", "set_intersection", "set_symmetric_difference", "set_union"
-};
-static const std::set<std::string> algorithm1x1 = {  // func(begin1, x, end1
-    "nth_element", "partial_sort", "rotate", "rotate_copy"
-};
-
-static const std::string iteratorBeginFuncPattern = "begin|cbegin|rbegin|crbegin";
-static const std::string iteratorEndFuncPattern = "end|cend|rend|crend";
-
-static const std::string pattern1x1_1 = "%name% . " + iteratorBeginFuncPattern + " ( ) , ";
-static const std::string pattern1x1_2 = "%name% . " + iteratorEndFuncPattern + " ( ) ,|)";
-static const std::string pattern2 = pattern1x1_1 + pattern1x1_2;
-
 static const Token * getIteratorExpression(const Token * tok)
 {
     if (!tok)
@@ -842,7 +833,8 @@ void CheckStl::mismatchingContainers()
         }
     }
     for (const Variable *var : symbolDatabase->variableList()) {
-        if (var && var->isStlStringType() && Token::Match(var->nameToken(), "%var% (") && Token::Match(var->nameToken()->tokAt(2), pattern2.c_str())) {
+        if (var && var->isStlStringType() && Token::Match(var->nameToken(), "%var% (") &&
+            Token::Match(var->nameToken()->tokAt(2), "%name% . begin|cbegin|rbegin|crbegin ( ) , %name% . end|cend|rend|crend ( ) ,|)")) {
             if (var->nameToken()->strAt(2) != var->nameToken()->strAt(8)) {
                 mismatchingContainersError(var->nameToken(), var->nameToken()->tokAt(2));
             }
@@ -1032,20 +1024,6 @@ struct InvalidContainerAnalyzer {
         }
     }
 };
-
-static bool isVariableDecl(const Token* tok)
-{
-    if (!tok)
-        return false;
-    const Variable* var = tok->variable();
-    if (!var)
-        return false;
-    if (var->nameToken() == tok)
-        return true;
-    if (Token::Match(var->declEndToken(), "; %var%") && var->declEndToken()->next() == tok)
-        return true;
-    return false;
-}
 
 static const Token* getLoopContainer(const Token* tok)
 {

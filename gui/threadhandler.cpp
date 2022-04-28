@@ -23,6 +23,10 @@
 #include "resultsview.h"
 #include "settings.h"
 
+#include <list>
+#include <string>
+#include <utility>
+
 #include <QDebug>
 #include <QFileInfo>
 #include <QSettings>
@@ -104,7 +108,6 @@ void ThreadHandler::check(const Settings &settings)
         mThreads[i]->setAddonsAndTools(addonsAndTools);
         mThreads[i]->setSuppressions(mSuppressions);
         mThreads[i]->setClangIncludePaths(mClangIncludePaths);
-        mThreads[i]->setDataDir(mDataDir);
         mThreads[i]->check(settings);
     }
 
@@ -201,9 +204,6 @@ void ThreadHandler::initialize(ResultsView *view)
 
     connect(&mResults, &ThreadResult::debugError,
             this, &ThreadHandler::debugError);
-
-    connect(&mResults, &ThreadResult::bughuntingReportLine,
-            this, &ThreadHandler::bughuntingReportLine);
 }
 
 void ThreadHandler::loadSettings(const QSettings &settings)

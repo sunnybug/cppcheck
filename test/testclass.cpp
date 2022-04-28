@@ -18,7 +18,6 @@
 
 #include "check.h"
 #include "checkclass.h"
-#include "config.h"
 #include "errortypes.h"
 #include "library.h"
 #include "settings.h"
@@ -41,7 +40,7 @@ private:
     Settings settings0;
     Settings settings1;
 
-    void run() OVERRIDE {
+    void run() override {
         settings0.severity.enable(Severity::style);
         settings1.severity.enable(Severity::warning);
 
@@ -54,6 +53,12 @@ private:
                                    "    <dealloc>free</dealloc>\n"
                                    "  </memory>\n"
                                    "  <smart-pointer class-name=\"std::shared_ptr\"/>\n"
+                                   "  <container id=\"stdVector\" startPattern=\"std :: vector &lt;\" itEndPattern=\"&gt; :: const_iterator\">\n"
+                                   "    <access>\n"
+                                   "      <function name=\"begin\" yields=\"start-iterator\"/>\n"
+                                   "      <function name=\"end\" yields=\"end-iterator\"/>\n"
+                                   "    </access>\n"
+                                   "  </container>\n"
                                    "</def>";
             tinyxml2::XMLDocument doc;
             doc.Parse(xmldata, sizeof(xmldata));
@@ -79,6 +84,7 @@ private:
         TEST_CASE(copyConstructor3); // defaulted/deleted
         TEST_CASE(copyConstructor4); // base class with private constructor
         TEST_CASE(copyConstructor5); // multiple inheritance
+        TEST_CASE(copyConstructor6); // array of pointers
         TEST_CASE(noOperatorEq); // class with memory management should have operator eq
         TEST_CASE(noDestructor); // class with memory management should have destructor
 
@@ -184,6 +190,11 @@ private:
         TEST_CASE(const71); // ticket #10146
         TEST_CASE(const72); // ticket #10520
         TEST_CASE(const73); // ticket #10735
+        TEST_CASE(const74); // ticket #10671
+        TEST_CASE(const75); // ticket #10065
+        TEST_CASE(const76); // ticket #10825
+        TEST_CASE(const77); // ticket #10307, #10311
+        TEST_CASE(const78); // ticket #10315
         TEST_CASE(const_handleDefaultParameters);
         TEST_CASE(const_passThisToMemberOfOtherClass);
         TEST_CASE(assigningPointerToPointerIsNotAConstOperation);
@@ -213,6 +224,7 @@ private:
         TEST_CASE(constPtrToConstPtr);
         TEST_CASE(constTrailingReturnType);
         TEST_CASE(staticArrayPtrOverload);
+        TEST_CASE(qualifiedNameMember); // #10872
 
         TEST_CASE(initializerListOrder);
         TEST_CASE(initializerListUsage);
@@ -959,6 +971,21 @@ private:
                              "    int* m_ptr;\n"
                              "};");
         ASSERT_EQUALS("", errout.str());
+    }
+
+    void copyConstructor6() {
+        checkCopyConstructor("struct S {\n"
+                             "    S() {\n"
+                             "        for (int i = 0; i < 5; i++)\n"
+                             "            a[i] = new char[3];\n"
+                             "    }\n"
+                             "    char* a[5];\n"
+                             "};\n");
+        TODO_ASSERT_EQUALS("[test.cpp:4]: (warning) Struct 'S' does not have a copy constructor which is recommended since it has dynamic memory/resource allocation(s).\n"
+                           "[test.cpp:4]: (warning) Struct 'S' does not have a operator= which is recommended since it has dynamic memory/resource allocation(s).\n"
+                           "[test.cpp:4]: (warning) Struct 'S' does not have a destructor which is recommended since it has dynamic memory/resource allocation(s).\n",
+                           "",
+                           errout.str());
     }
 
     void noOperatorEq() {
@@ -2537,6 +2564,27 @@ private:
                                "Base *base = new Derived;\n"
                                "delete base;");
         ASSERT_EQUALS("", errout.str());
+
+        // #9104
+        checkVirtualDestructor("struct A\n"
+                               "{\n"
+                               "    A()  { cout << \"A is constructing\\n\"; }\n"
+                               "    ~A() { cout << \"A is destructing\\n\"; }\n"
+                               "};\n"
+                               " \n"
+                               "struct Base {};\n"
+                               " \n"
+                               "struct Derived : Base\n"
+                               "{\n"
+                               "    A a;\n"
+                               "};\n"
+                               " \n"
+                               "int main(void)\n"
+                               "{\n"
+                               "    Base* p = new Derived();\n"
+                               "    delete p;\n"
+                               "}");
+        ASSERT_EQUALS("[test.cpp:7]: (error) Class 'Base' which is inherited by class 'Derived' does not have a virtual destructor.\n", errout.str());
     }
 
     void virtualDestructor3() {
@@ -5919,6 +5967,107 @@ private:
         ASSERT_EQUALS("[test.cpp:5] -> [test.cpp:3]: (style, inconclusive) Technically the member function 'S::f' can be const.\n", errout.str());
     }
 
+    void const74() { // #10671
+        checkConst("class A {\n"
+                   "    std::vector<std::string> m_str;\n"
+                   "public:\n"
+                   "    A() {}\n"
+                   "    void bar(void) {\n"
+                   "        for(std::vector<std::string>::const_iterator it = m_str.begin(); it != m_str.end(); ++it) {;}\n"
+                   "    }\n"
+                   "};");
+        ASSERT_EQUALS("[test.cpp:5]: (style, inconclusive) Technically the member function 'A::bar' can be const.\n", errout.str());
+
+        // Don't crash
+        checkConst("struct S {\n"
+                   "    std::vector<T*> v;\n"
+                   "    void f() const;\n"
+                   "};\n"
+                   "void S::f() const {\n"
+                   "    for (std::vector<T*>::const_iterator it = v.begin(), end = v.end(); it != end; ++it) {}\n"
+                   "}\n");
+        ASSERT_EQUALS("", errout.str());
+    }
+
+    void const75() { // #10065
+        checkConst("namespace N { int i = 0; }\n"
+                   "struct S {\n"
+                   "    int i;\n"
+                   "    void f() {\n"
+                   "        if (N::i) {}\n"
+                   "    }\n"
+                   "};\n");
+        ASSERT_EQUALS("[test.cpp:4]: (performance, inconclusive) Technically the member function 'S::f' can be static (but you may consider moving to unnamed namespace).\n", errout.str());
+
+        checkConst("int i = 0;\n"
+                   "struct S {\n"
+                   "    int i;\n"
+                   "    void f() {\n"
+                   "        if (::i) {}\n"
+                   "    }\n"
+                   "};\n");
+        ASSERT_EQUALS("[test.cpp:4]: (performance, inconclusive) Technically the member function 'S::f' can be static (but you may consider moving to unnamed namespace).\n", errout.str());
+
+        checkConst("namespace N {\n"
+                   "    struct S {\n"
+                   "        int i;\n"
+                   "        void f() {\n"
+                   "            if (N::S::i) {}\n"
+                   "        }\n"
+                   "    };\n"
+                   "}\n");
+        ASSERT_EQUALS("[test.cpp:4]: (style, inconclusive) Technically the member function 'N::S::f' can be const.\n", errout.str());
+    }
+
+    void const76() { // #10825
+        checkConst("struct S {\n"
+                   "    enum E {};\n"
+                   "    void f(const T* t);\n"
+                   "    E e;\n"
+                   "};\n"
+                   "struct T { void e(); };\n"
+                   "void S::f(const T* t) {\n"
+                   "    const_cast<T*>(t)->e();\n"
+                   "};\n");
+        ASSERT_EQUALS("[test.cpp:7] -> [test.cpp:3]: (performance, inconclusive) Technically the member function 'S::f' can be static (but you may consider moving to unnamed namespace).\n",
+                      errout.str());
+    }
+
+    void const77() {
+        checkConst("template <typename T>\n" // #10307
+                   "struct S {\n"
+                   "    std::vector<T> const* f() const { return p; }\n"
+                   "    std::vector<T> const* p;\n"
+                   "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkConst("struct S {\n" // #10311
+                   "    std::vector<const int*> v;\n"
+                   "    std::vector<const int*>& f() { return v; }\n"
+                   "};\n");
+        ASSERT_EQUALS("", errout.str());
+    }
+
+    void const78() { // #10315
+        checkConst("struct S {\n"
+                   "    typedef void(S::* F)();\n"
+                   "    void g(F f);\n"
+                   "};\n"
+                   "void S::g(F f) {\n"
+                   "    (this->*f)();\n"
+                   "}\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkConst("struct S {\n"
+                   "    using F = void(S::*)();\n"
+                   "    void g(F f);\n"
+                   "};\n"
+                   "void S::g(F f) {\n"
+                   "    (this->*f)();\n"
+                   "}\n");
+        ASSERT_EQUALS("", errout.str());
+    }
+
     void const_handleDefaultParameters() {
         checkConst("struct Foo {\n"
                    "    void foo1(int i, int j = 0) {\n"
@@ -6733,6 +6882,22 @@ private:
         ASSERT_EQUALS("", errout.str());
     }
 
+    void qualifiedNameMember() { // #10872
+        Settings s;
+        s.severity.enable(Severity::style);
+        s.debugwarnings = true;
+        LOAD_LIB_2(s.library, "std.cfg");
+        checkConst("struct data {};\n"
+                   "    struct S {\n"
+                   "    std::vector<data> std;\n"
+                   "    void f();\n"
+                   "};\n"
+                   "void S::f() {\n"
+                   "    std::vector<data>::const_iterator end = std.end();\n"
+                   "}\n", &s);
+        ASSERT_EQUALS("[test.cpp:6] -> [test.cpp:4]: (style, inconclusive) Technically the member function 'S::f' can be const.\n", errout.str());
+    }
+
 #define checkInitializerListOrder(code) checkInitializerListOrder_(code, __FILE__, __LINE__)
     void checkInitializerListOrder_(const char code[], const char* file, int line) {
         // Clear the error log
@@ -7158,6 +7323,56 @@ private:
                                  "    A() { f(); }\n"
                                  "};\n");
         ASSERT_EQUALS("", errout.str());
+
+        checkVirtualFunctionCall("class Base {\n"
+                                 "public:\n"
+                                 "    virtual void Copy(const Base& Src) = 0;\n"
+                                 "};\n"
+                                 "class Derived : public Base {\n"
+                                 "public:\n"
+                                 "    Derived() : i(0) {}\n"
+                                 "    Derived(const Derived& Src);\n"
+                                 "    void Copy(const Base& Src) override;\n"
+                                 "    int i;\n"
+                                 "};\n"
+                                 "Derived::Derived(const Derived& Src) {\n"
+                                 "    Copy(Src);\n"
+                                 "}\n"
+                                 "void Derived::Copy(const Base& Src) {\n"
+                                 "    auto d = dynamic_cast<const Derived&>(Src);\n"
+                                 "    i = d.i;\n"
+                                 "}\n");
+        ASSERT_EQUALS("[test.cpp:13] -> [test.cpp:9]: (style) Virtual function 'Copy' is called from copy constructor 'Derived(const Derived&Src)' at line 13. Dynamic binding is not used.\n",
+                      errout.str());
+
+        checkVirtualFunctionCall("struct B {\n"
+                                 "    B() { auto pf = &f; }\n"
+                                 "    virtual void f() {}\n"
+                                 "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkVirtualFunctionCall("struct B {\n"
+                                 "    B() { auto pf = &B::f; }\n"
+                                 "    virtual void f() {}\n"
+                                 "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkVirtualFunctionCall("struct B {\n"
+                                 "    B() { (f)(); }\n"
+                                 "    virtual void f() {}\n"
+                                 "};\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:3]: (style) Virtual function 'f' is called from constructor 'B()' at line 2. Dynamic binding is not used.\n", errout.str());
+
+        checkVirtualFunctionCall("class S {\n" // don't crash
+                                 "    ~S();\n"
+                                 "public:\n"
+                                 "    S();\n"
+                                 "};\n"
+                                 "S::S() {\n"
+                                 "    typeid(S);\n"
+                                 "}\n"
+                                 "S::~S() = default;\n");
+        ASSERT_EQUALS("", errout.str());
     }
 
     void pureVirtualFunctionCall() {
@@ -7179,6 +7394,17 @@ private:
                                  "A::A():m(A::pure())\n"
                                  "{}");
         ASSERT_EQUALS("[test.cpp:7] -> [test.cpp:3]: (warning) Call of pure virtual function 'pure' in constructor.\n", errout.str());
+
+        checkVirtualFunctionCall("namespace N {\n"
+                                 "  class A\n"
+                                 "  {\n"
+                                 "      virtual int pure() = 0;\n"
+                                 "      A();\n"
+                                 "      int m;\n"
+                                 "  };\n"
+                                 "}\n"
+                                 "N::A::A() : m(N::A::pure()) {}\n");
+        ASSERT_EQUALS("[test.cpp:9] -> [test.cpp:4]: (warning) Call of pure virtual function 'pure' in constructor.\n", errout.str());
 
         checkVirtualFunctionCall("class A\n"
                                  " {\n"
@@ -7417,6 +7643,97 @@ private:
                       "   void foo() override;\n"
                       "   void foo(int);\n"
                       "};");
+        ASSERT_EQUALS("", errout.str());
+
+        checkOverride("struct B {\n" // #9092
+                      "    virtual int f(int i) const = 0;\n"
+                      "};\n"
+                      "namespace N {\n"
+                      "    struct D : B {\n"
+                      "        virtual int f(int i) const;\n"
+                      "    };\n"
+                      "}\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:6]: (style) The function 'f' overrides a function in a base class but is not marked with a 'override' specifier.\n", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(int);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(double);\n"
+                      "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(int);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(int);\n"
+                      "};\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:5]: (style) The function 'f' overrides a function in a base class but is not marked with a 'override' specifier.\n", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(char, int);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(char, int);\n"
+                      "};\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:5]: (style) The function 'f' overrides a function in a base class but is not marked with a 'override' specifier.\n", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(char, int);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(char, double);\n"
+                      "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(char, int);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(char c = '\\0', double);\n"
+                      "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(char, int);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(char c = '\\0', int);\n"
+                      "};\n");
+        ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:5]: (style) The function 'f' overrides a function in a base class but is not marked with a 'override' specifier.\n", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(char c, std::vector<int>);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(char c, std::vector<double>);\n"
+                      "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(char c, std::vector<int>);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(char c, std::set<int>);\n"
+                      "};\n");
+        ASSERT_EQUALS("", errout.str());
+
+        checkOverride("struct A {\n"
+                      "    virtual void f(char c, std::vector<int> v);\n"
+                      "};\n"
+                      "struct D : A {\n"
+                      "  void f(char c, std::vector<int> w = {});\n"
+                      "};\n");
+        TODO_ASSERT_EQUALS("[test.cpp:2] -> [test.cpp:5]: (style) The function 'f' overrides a function in a base class but is not marked with a 'override' specifier.\n", "", errout.str());
+
+        checkOverride("struct T {};\n" // #10920
+                      "struct B {\n"
+                      "    virtual T f() = 0;\n"
+                      "};\n"
+                      "struct D : B {\n"
+                      "    friend T f();\n"
+                      "};\n");
         ASSERT_EQUALS("", errout.str());
     }
 

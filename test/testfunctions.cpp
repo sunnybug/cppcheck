@@ -17,7 +17,6 @@
  */
 
 #include "checkfunctions.h"
-#include "config.h"
 #include "errortypes.h"
 #include "library.h"
 #include "settings.h"
@@ -38,7 +37,7 @@ public:
 private:
     Settings settings;
 
-    void run() OVERRIDE {
+    void run() override {
         settings.severity.enable(Severity::style);
         settings.severity.enable(Severity::warning);
         settings.severity.enable(Severity::performance);
@@ -375,7 +374,7 @@ private:
         check("void f()\n"
               "{\n"
               "    time_t t = 0;"
-              "    std::localtime(&t);\n"
+              "    auto lt = std::localtime(&t);\n"
               "}");
         ASSERT_EQUALS("[test.cpp:3]: (portability) Non reentrant function 'localtime' called. For threadsafe applications it is recommended to use the reentrant replacement function 'localtime_r'.\n", errout.str());
 
@@ -1557,6 +1556,22 @@ private:
 
         check("auto f() -> void {}"); // #10342
         ASSERT_EQUALS("", errout.str());
+
+        check("struct S1 {\n" // #7433
+              "    S1& operator=(const S1& r) { if (this != &r) { i = r.i; } }\n"
+              "    int i;\n"
+              "};\n"
+              "struct S2 {\n"
+              "    S2& operator=(const S2& s) { if (this != &s) { j = s.j; } return *this; }\n"
+              "    int j;\n"
+              "};\n"
+              "struct S3 {\n"
+              "    S3& operator=(const S3& t) { if (this != &t) { k = t.k; return *this; } }\n"
+              "    int k;\n"
+              "};\n");
+        ASSERT_EQUALS("[test.cpp:2]: (error) Found a exit path from function with non-void return type that has missing return statement\n"
+                      "[test.cpp:10]: (error) Found a exit path from function with non-void return type that has missing return statement\n",
+                      errout.str());
     }
 
     // NRVO check

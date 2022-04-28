@@ -35,6 +35,7 @@ class CheckThread;
 class QSettings;
 class Settings;
 class ImportProject;
+class ErrorItem;
 
 /// @addtogroup GUI
 /// @{
@@ -48,7 +49,7 @@ class ThreadHandler : public QObject {
     Q_OBJECT
 public:
     explicit ThreadHandler(QObject *parent = nullptr);
-    virtual ~ThreadHandler();
+    ~ThreadHandler() override;
 
     /**
      * @brief Set the number of threads to use
@@ -85,10 +86,6 @@ public:
 
     void setClangIncludePaths(const QStringList &s) {
         mClangIncludePaths = s;
-    }
-
-    void setDataDir(const QString &dataDir) {
-        mDataDir = dataDir;
     }
 
     /**
@@ -191,8 +188,6 @@ signals:
 
     void debugError(const ErrorItem &item);
 
-    void bughuntingReportLine(QString line);
-
 public slots:
 
     /**
@@ -262,8 +257,6 @@ protected:
     QStringList mAddonsAndTools;
     QList<Suppressions::Suppression> mSuppressions;
     QStringList mClangIncludePaths;
-
-    QString mDataDir;
 private:
 
     /**

@@ -17,7 +17,6 @@
  */
 
 #include "checkmemoryleak.h"
-#include "config.h"
 #include "errortypes.h"
 #include "settings.h"
 #include "symboldatabase.h"
@@ -42,7 +41,7 @@ public:
 private:
     Settings settings;
 
-    void run() OVERRIDE {
+    void run() override {
         TEST_CASE(testFunctionReturnType);
         TEST_CASE(open);
     }
@@ -149,7 +148,7 @@ private:
     }
 
 
-    void run() OVERRIDE {
+    void run() override {
         LOAD_LIB_2(settings1.library, "std.cfg");
         LOAD_LIB_2(settings1.library, "posix.cfg");
         LOAD_LIB_2(settings2.library, "std.cfg");
@@ -491,7 +490,7 @@ private:
         (checkMemoryLeak.check)();
     }
 
-    void run() OVERRIDE {
+    void run() override {
         settings.severity.enable(Severity::warning);
         settings.severity.enable(Severity::style);
 
@@ -522,6 +521,7 @@ private:
         TEST_CASE(class24); // ticket #3806 - false positive in copy constructor
         TEST_CASE(class25); // ticket #4367 - false positive implementation for destructor is not seen
         TEST_CASE(class26); // ticket #10789
+        TEST_CASE(class27); // ticket #8126
 
         TEST_CASE(staticvar);
 
@@ -1462,6 +1462,17 @@ private:
         ASSERT_EQUALS("[test.cpp:5]: (style) Class 'S' is unsafe, 'S::p' can leak by wrong usage.\n", errout.str());
     }
 
+    void class27() { // ticket #8126 - array of pointers
+        check("struct S {\n"
+              "    S() {\n"
+              "        for (int i = 0; i < 5; i++)\n"
+              "            a[i] = new char[3];\n"
+              "    }\n"
+              "    char* a[5];\n"
+              "};\n");
+        ASSERT_EQUALS("[test.cpp:6]: (style) Class 'S' is unsafe, 'S::a' can leak by wrong usage.\n", errout.str());
+    }
+
     void staticvar() {
         check("class A\n"
               "{\n"
@@ -1679,7 +1690,7 @@ private:
         (checkMemoryLeakStructMember.check)();
     }
 
-    void run() OVERRIDE {
+    void run() override {
         LOAD_LIB_2(settings.library, "std.cfg");
         LOAD_LIB_2(settings.library, "posix.cfg");
 
@@ -2184,7 +2195,7 @@ private:
         (checkMemoryLeakNoVar.check)();
     }
 
-    void run() OVERRIDE {
+    void run() override {
         settings.certainty.setEnabled(Certainty::inconclusive, true);
         settings.libraries.emplace_back("posix");
         settings.severity.enable(Severity::warning);
@@ -2429,6 +2440,77 @@ private:
               "template<typename T, typename... Ts> auto binary_left_comma (T x, Ts... ts) { return (x , ... , ts); }\n"
               "int main() {\n"
               "  unary_right_comma (a);\n"
+              "}");
+        ASSERT_EQUALS("", errout.str());
+
+        check("void f() {\n"
+              "    new int[10];\n"
+              "    new int[10][5];\n"
+              "    new int[10]();\n"
+              "    new int[10]{};\n"
+              "    new int[] { 1, 2, 3 };\n"
+              "    new std::string;\n"
+              "    new int;\n"
+              "    new int();\n"
+              "    new int(1);\n"
+              "    new int{};\n"
+              "    new int{ 1 };\n"
+              "    new uint8_t[4];\n"
+              "}");
+        ASSERT_EQUALS("[test.cpp:2]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:3]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:4]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:5]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:6]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:7]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:8]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:9]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:10]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:11]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:12]: (error) Return value of allocation function 'new' is not stored.\n"
+                      "[test.cpp:13]: (error) Return value of allocation function 'new' is not stored.\n",
+                      errout.str());
+
+        check("void f(int* p) {\n"
+              "    new auto('c');\n"
+              "    new(p) int;\n"
+              "}");
+        TODO_ASSERT_EQUALS("[test.cpp:2]: (error) Return value of allocation function 'new' is not stored.\n"
+                           "[test.cpp:3]: (error) Return value of allocation function 'new' is not stored.\n",
+                           "",
+                           errout.str());
+
+        check("void g(int* p) {\n"
+              "    new QWidget;\n"
+              "    new QWidget();\n"
+              "    new QWidget{ this };\n"
+              "    h(new int[10], 1);\n"
+              "    h(new int[10][5], 1);\n"
+              "    h(new int[10](), 1);\n"
+              "    h(new int[10]{}, 1);\n"
+              "    h(new int[] { 1, 2, 3 }, 1);\n"
+              "    h(new auto('c'), 1);\n"
+              "    h(new std::string, 1);\n"
+              "    h(new int, 1);\n"
+              "    h(new int{}, 1);\n"
+              "    h(new int(), 1);\n"
+              "    h(new int{ 1 }, 1);\n"
+              "    h(new int(1), 1);\n"
+              "    h(new(p) int, 1);\n"
+              "    h(new QWidget, 1);\n"
+              "    C{ new int[10], 1 };\n"
+              "    C{ new int[10](), 1 };\n"
+              "    C{ new int[10]{}, 1 };\n"
+              "    C{ new int[] { 1, 2, 3 }, 1 };\n"
+              "    C{ new auto('c'), 1 };\n"
+              "    C{ new std::string, 1 };\n"
+              "    C{ new int, 1 };\n"
+              "    C{ new int{}, 1 };\n"
+              "    C{ new int(), 1 };\n"
+              "    C{ new int{ 1 }, 1 };\n"
+              "    C{ new int(1), 1 };\n"
+              "    C{ new(p) int, 1 };\n"
+              "    C{ new QWidget, 1 };\n"
               "}");
         ASSERT_EQUALS("", errout.str());
     }

@@ -25,6 +25,7 @@
 
 #include <QThread>
 
+class QObject;
 class Settings;
 class ThreadResult;
 
@@ -39,7 +40,7 @@ class CheckThread : public QThread {
     Q_OBJECT
 public:
     explicit CheckThread(ThreadResult &result);
-    virtual ~CheckThread();
+    ~CheckThread() override;
 
     /**
      * @brief Set settings for cppcheck
@@ -56,10 +57,6 @@ public:
 
     void setAddonsAndTools(const QStringList &addonsAndTools) {
         mAddonsAndTools = addonsAndTools;
-    }
-
-    void setDataDir(const QString &dataDir) {
-        mDataDir = dataDir;
     }
 
     void setClangIncludePaths(const QStringList &s) {
@@ -136,7 +133,6 @@ private:
     QStringList mFiles;
     bool mAnalyseWholeProgram;
     QStringList mAddonsAndTools;
-    QString mDataDir;
     QStringList mClangIncludePaths;
     QList<Suppressions::Suppression> mSuppressions;
 };

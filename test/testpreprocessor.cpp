@@ -20,7 +20,6 @@
 // The preprocessor that Cppcheck uses is a bit special. Instead of generating
 // the code for a known configuration, it generates the code for each configuration.
 
-#include "config.h"
 #include "errortypes.h"
 #include "platform.h"
 #include "preprocessor.h"
@@ -75,7 +74,7 @@ private:
     Settings settings0;
     Preprocessor preprocessor0;
 
-    void run() OVERRIDE {
+    void run() override {
 
         // The bug that started the whole work with the new preprocessor
         TEST_CASE(Bug2190219);
@@ -210,6 +209,7 @@ private:
         TEST_CASE(predefine3);
         TEST_CASE(predefine4);
         TEST_CASE(predefine5);  // automatically define __cplusplus
+        TEST_CASE(predefine6);  // automatically define __STDC_VERSION__
 
         TEST_CASE(invalidElIf); // #2942 segfault
 
@@ -1997,8 +1997,14 @@ private:
     void predefine5() {  // #3737, #5119 - automatically define __cplusplus
         // #3737...
         const char code[] = "#ifdef __cplusplus\n123\n#endif";
-        ASSERT_EQUALS("",      preprocessor0.getcode(code, "X=123", "test.c"));
-        ASSERT_EQUALS("\n123", preprocessor0.getcode(code, "X=123", "test.cpp"));
+        ASSERT_EQUALS("",      preprocessor0.getcode(code, "", "test.c"));
+        ASSERT_EQUALS("\n123", preprocessor0.getcode(code, "", "test.cpp"));
+    }
+
+    void predefine6() { // automatically define __STDC_VERSION__
+        const char code[] = "#ifdef __STDC_VERSION__\n123\n#endif";
+        ASSERT_EQUALS("\n123", preprocessor0.getcode(code, "", "test.c"));
+        ASSERT_EQUALS("",      preprocessor0.getcode(code, "", "test.cpp"));
     }
 
     void invalidElIf() {
