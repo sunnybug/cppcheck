@@ -504,10 +504,20 @@ void clangimport::AstNode::setLocations(TokenList *tokenList, int file, int line
             if (ext.find(", col:") != std::string::npos)
                 col = std::atoi(ext.c_str() + ext.find(", col:") + 6);
         } else if (ext[0] == '<' && ext.find(":") != std::string::npos) {
-            std::string::size_type sep1 = ext.find(":");
+            std::string::size_type sep1 = ext.find( ":" );
+            // jump over c:/
+            auto sepPath = ext.find( "/", sep1 + 1 );
+            if (sepPath != std::string::npos) {
+                sep1 = ext.find( ":", sepPath +1);
+            }
+            else if ((sepPath = ext.find( "\\", sep1 + 1 )) != std::string::npos )
+            {
+                sep1 = ext.find( ":", sepPath + 1 );
+            }
+
             std::string::size_type sep2 = ext.find(":", sep1+1);
             file = tokenList->appendFileIfNew(ext.substr(1, sep1 - 1));
-            line = MathLib::toLongNumber(ext.substr(sep1+1, sep2-sep1));
+            line = MathLib::toLongNumber(ext.substr(sep1+1, sep2-sep1-1));
         }
     }
     mFile = file;

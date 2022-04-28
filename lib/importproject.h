@@ -74,6 +74,7 @@ public:
         std::list<std::string> includePaths;
         std::list<std::string> systemIncludePaths;
         std::string standard;
+        std::string  precompiledHeaderFile;
         cppcheck::Platform::PlatformType platformType;
         bool msc;
         bool useMfc;
@@ -174,7 +175,8 @@ namespace CppcheckXml {
     const char MaxCtuDepthElementName[] = "max-ctu-depth";
     const char MaxTemplateRecursionElementName[] = "max-template-recursion";
     const char CheckUnknownFunctionReturn[] = "check-unknown-function-return-values";
-    const char ClangTidy[] = "clang-tidy";
+    const char ClangTidy[]                       = "clang-tidy";
+    const char AutoFix[]                       = "auto-fix";
     const char Name[] = "name";
     const char VSConfigurationElementName[] = "vs-configurations";
     const char VSConfigurationName[] = "config";

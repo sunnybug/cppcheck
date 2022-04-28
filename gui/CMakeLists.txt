@@ -1,4 +1,5 @@
 if (BUILD_GUI)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /entry:mainCRTStartup")
 
     if (CMAKE_BUILD_TYPE MATCHES "Release")
         add_definitions(-DQT_NO_DEBUG)

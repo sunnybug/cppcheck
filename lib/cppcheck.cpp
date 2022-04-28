@@ -1590,7 +1590,7 @@ void CppCheck::getErrorMessages()
     Preprocessor::getErrorMessages(this, &s);
 }
 
-void CppCheck::analyseClangTidy(const ImportProject::FileSettings &fileSettings)
+void CppCheck::analyseClangTidy( const Settings& settings, const ImportProject::FileSettings& fileSettings )
 {
     std::string allIncludes;
     for (const std::string &inc : fileSettings.includePaths) {
@@ -1605,7 +1605,11 @@ void CppCheck::analyseClangTidy(const ImportProject::FileSettings &fileSettings)
     const char exe[] = "clang-tidy";
 #endif
 
-    const std::string args = "-quiet -checks=*,-clang-analyzer-*,-llvm* \"" + fileSettings.filename + "\" -- " + allIncludes + allDefines;
+    std::string args = "-quiet \"" + fileSettings.filename + "\" -- " + allIncludes + allDefines;
+    if ( settings.autoFix )
+        args.insert( 0, " --fix-errors --fix-notes " );
+    if (!fileSettings.precompiledHeaderFile.empty())
+        args += std::string( " -include \"" + fileSettings.precompiledHeaderFile + "\"" );
     std::string output;
     if (!mExecuteCommand(exe, split(args), "", &output)) {
         std::cerr << "Failed to execute '" << exe << "'" << std::endl;

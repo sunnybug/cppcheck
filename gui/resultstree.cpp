@@ -1030,7 +1030,7 @@ void ResultsTree::suppressSelectedIds()
     }
 
     // delete all errors with selected message Ids
-    for (int i = 0; i < mModel.rowCount(); i++) {
+    for ( int i = mModel.rowCount()-1; i >=0; i-- ){
         QStandardItem * const file = mModel.item(i, 0);
         for (int j = 0; j < file->rowCount();) {
             QStandardItem *errorItem = file->child(j, 0);

@@ -543,6 +543,8 @@ namespace {
                             if (!additionalIncludePaths.empty())
                                 additionalIncludePaths += ';';
                             additionalIncludePaths += e->GetText();
+                        }else if ( std::strcmp( e->Name(), "PrecompiledHeaderFile" ) == 0 ){
+                            precompiledHeaderFile = e->GetText();
                         } else if (std::strcmp(e->Name(), "LanguageStandard") == 0) {
                             if (std::strcmp(e->GetText(), "stdcpp14") == 0)
                                 cppstd = Standards::CPP14;
@@ -594,6 +596,7 @@ namespace {
         std::string enhancedInstructionSet;
         std::string preprocessorDefinitions;
         std::string additionalIncludePaths;
+        std::string precompiledHeaderFile;
         Standards::cppstd_t cppstd = Standards::CPPLatest;
     };
 }
@@ -789,6 +792,7 @@ bool ImportProject::importVcxproj(const std::string &filename, std::map<std::str
                     continue;
                 fs.standard = Standards::getCPP(i.cppstd);
                 fs.defines += ';' + i.preprocessorDefinitions;
+                fs.precompiledHeaderFile = i.precompiledHeaderFile;
                 if (i.enhancedInstructionSet == "StreamingSIMDExtensions")
                     fs.defines += ";__SSE__";
                 else if (i.enhancedInstructionSet == "StreamingSIMDExtensions2")
@@ -1141,9 +1145,11 @@ bool ImportProject::importCppcheckGuiProject(std::istream &istr, Settings *setti
             temp.relativePaths = true;
         } else if (strcmp(node->Name(), CppcheckXml::BugHunting) == 0)
             ;
-        else if (strcmp(node->Name(), CppcheckXml::BuildDirElementName) == 0)
-            temp.buildDir = joinRelativePath(path, node->GetText() ? node->GetText() : "");
-        else if (strcmp(node->Name(), CppcheckXml::IncludeDirElementName) == 0)
+        else if ( strcmp( node->Name(), CppcheckXml::BuildDirElementName ) == 0 )
+            temp.buildDir = joinRelativePath( path, node->GetText() ? node->GetText() : "" );
+        else if (strcmp(node->Name(), CppcheckXml::AutoFix) == 0)
+            temp.autoFix = ( strcmp( node->GetText(), "true" ) == 0 );
+        else if ( strcmp( node->Name(), CppcheckXml::IncludeDirElementName ) == 0 )
             temp.includePaths = readXmlStringList(node, path, CppcheckXml::DirElementName, CppcheckXml::DirNameAttrib);
         else if (strcmp(node->Name(), CppcheckXml::DefinesElementName) == 0)
             temp.userDefines = join(readXmlStringList(node, "", CppcheckXml::DefineName, CppcheckXml::DefineNameAttrib), ";");
@@ -1235,7 +1241,8 @@ bool ImportProject::importCppcheckGuiProject(std::istream &istr, Settings *setti
     settings->userUndefs = temp.userUndefs;
     settings->addons = temp.addons;
     settings->clang = temp.clang;
-    settings->clangTidy = temp.clangTidy;
+    settings->clangTidy    = temp.clangTidy;
+    settings->autoFix    = temp.autoFix;
 
     for (const std::string &p : paths)
         guiProject.pathNames.push_back(p);

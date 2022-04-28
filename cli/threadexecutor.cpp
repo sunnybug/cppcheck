@@ -527,7 +527,7 @@ unsigned int STDCALL ThreadExecutor::threadProc(SyncLogForwarder* logForwarder)
             logForwarder->mFileSync.unlock();
             result += fileChecker.check(fs);
             if (logForwarder->mThreadExecutor.mSettings.clangTidy)
-                fileChecker.analyseClangTidy(fs);
+                fileChecker.analyseClangTidy( threadExecutor->mSettings, fs );
         }
 
         logForwarder->mFileSync.lock();

@@ -133,6 +133,9 @@ public:
     /** Use Clang */
     bool clang;
 
+    //--fix --fix-errors --fix-notes
+    bool autoFix = false;
+
     /** Custom Clang executable */
     std::string clangExecutable;
 

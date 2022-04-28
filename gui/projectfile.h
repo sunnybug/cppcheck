@@ -568,6 +568,16 @@ private:
     QStringList mCheckUnknownFunctionReturn;
 
     static ProjectFile *mActiveProject;
+
+
+public:
+    bool IsAutoFix() const
+    {
+        return mAutoFix;
+    }
+
+private:
+    bool mAutoFix = false;
 };
 /// @}
 #endif  // PROJECT_FILE_H
